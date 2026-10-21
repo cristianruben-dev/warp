@@ -10262,13 +10262,10 @@ dependencies = [
  "cfg-if",
  "cfg_aliases 0.2.1",
  "futures",
- "itertools 0.14.0",
  "log",
  "objc2 0.6.3",
  "objc2-foundation 0.3.2",
- "parking_lot",
  "pin-project",
- "windows 0.62.2",
 ]
 
 [[package]]
