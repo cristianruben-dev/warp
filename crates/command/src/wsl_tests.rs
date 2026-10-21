@@ -161,8 +161,6 @@ fn known_bare_name_skips_paths() {
     assert_eq!(known_bare_name(OsStr::new("/usr/bin/git")), None);
     assert_eq!(known_bare_name(OsStr::new("./git")), None);
     assert_eq!(known_bare_name(OsStr::new("bin/git")), None);
-    #[cfg(windows)]
-    assert_eq!(known_bare_name(OsStr::new("C:\\git\\git.exe")), None);
 }
 
 #[test]

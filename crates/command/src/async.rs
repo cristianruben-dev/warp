@@ -10,8 +10,7 @@ use std::{fmt, io};
 
 use async_process::Child;
 
-/// Wrapper around a [`async_process::Command`] that ensures any new Command is set with the windows
-/// `CREATE_NO_WINDOW` flag to avoid a console window temporarily popping up.
+/// Wrapper around a [`async_process::Command`] that applies Warp's default process configuration.
 pub struct Command {
     pub(super) inner: async_process::Command,
     stdin_is_default: bool,
@@ -86,8 +85,6 @@ impl Command {
         // Configures the new process to be the leader of a process group with its
         // process ID as the group ID. This allows for killing any other processes
         // spawned by this process when we kill this process.
-        //
-        // TODO(roland): handle for windows
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut command, 0);
 
@@ -95,18 +92,7 @@ impl Command {
         Self::new_internal(inner)
     }
 
-    #[allow(unused_mut)]
-    fn new_internal(mut inner: async_process::Command) -> Command {
-        #[cfg(all(windows, not(feature = "test-util")))]
-        {
-            use async_process::windows::CommandExt;
-            // We need to set the `CREATE_BREAKAWAY_FROM_JOB` flag to avoid assigning
-            // the process to the same Job Object as the Warp process, otherwise the
-            // process will be killed when the Warp process is killed.
-            let flags = windows::Win32::System::Threading::CREATE_NO_WINDOW.0
-                | windows::Win32::System::Threading::CREATE_BREAKAWAY_FROM_JOB.0;
-            inner.creation_flags(flags);
-        }
+    fn new_internal(inner: async_process::Command) -> Command {
         Self {
             inner,
             stdin_is_default: true,

@@ -3203,17 +3203,11 @@ dependencies = [
 name = "command"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-process",
  "futures-lite 1.13.0",
- "lazy_static",
  "libc",
  "log",
  "tempfile",
- "thiserror 2.0.17",
- "warp_errors",
- "win32job",
- "windows 0.62.2",
 ]
 
 [[package]]
@@ -15983,9 +15977,6 @@ dependencies = [
  "warp_errors",
  "warpui_core",
  "warpui_extras",
- "windows 0.62.2",
- "windows-registry 0.2.0",
- "windows-result 0.2.0",
 ]
 
 [[package]]
@@ -16570,16 +16561,6 @@ checksum = "0ce5da8ecb62bcd8ec8b7ea19f69a51275e91299be594ea5cc6ef7819e16cd03"
 dependencies = [
  "bytemuck",
  "safe_arch",
-]
-
-[[package]]
-name = "win32job"
-version = "2.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c6a6724ccfbf34154a8691bd868b0fcd2be2ca3f7b47b32614654f1a01b191c"
-dependencies = [
- "thiserror 1.0.63",
- "windows 0.61.3",
 ]
 
 [[package]]
