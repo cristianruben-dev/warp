@@ -1,5 +1,5 @@
 use itertools::Itertools;
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use {arboard, image::ImageEncoder};
 
 #[allow(unused_imports)]
@@ -18,7 +18,7 @@ pub const CLIPBOARD_IMAGE_MIME_TYPES: &[&str] = &[
 ];
 
 /// Minimum bytes needed for image format detection.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 const MIN_IMAGE_HEADER_SIZE: usize = 8;
 
 /// Check if a string has an image file extension.
@@ -271,7 +271,7 @@ pub fn strip_html_to_plain_text(html: &str) -> String {
 }
 
 /// Process clipboard image data, preserving original format or converting to PNG.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub fn process_clipboard_image(
     arboard_image: &arboard::ImageData,
     filename: Option<String>,
@@ -296,7 +296,7 @@ pub fn process_clipboard_image(
 }
 
 /// Read image data from clipboard, checking for images before expensive filename extraction.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub fn read_images_from_clipboard(
     clipboard: &mut arboard::Clipboard,
     html_content: &Option<String>,
@@ -329,7 +329,7 @@ pub fn read_images_from_clipboard(
 }
 
 /// Try to preserve original image format using infer crate for detection.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub fn try_preserve_original_format(
     bytes: &[u8],
     filename: Option<String>,
@@ -356,7 +356,7 @@ pub fn try_preserve_original_format(
 }
 
 /// Converts RGBA bitmap data to PNG format, returns None on invalid dimensions/encoding.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub fn convert_raw_bitmap_to_png(
     width: usize,
     height: usize,

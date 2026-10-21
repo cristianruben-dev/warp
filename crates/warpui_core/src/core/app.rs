@@ -952,8 +952,6 @@ impl AppContext {
     /// this method handles dispatching the right handler for the button clicked. The response is
     /// encoded as a 0-based index into the list of buttons on the modal, and the callback will be
     /// at the same index in the Vec of callbacks.
-    /// TODO(CORE-2323): Implement native Windows OS modal
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub(crate) fn process_platform_modal_response(
         &mut self,
         modal_id: ModalId,
@@ -2632,11 +2630,11 @@ impl AppContext {
 
                 window.request_redraw();
 
-                // On Linux and Windows, we don't have a direct way to react to
-                // window fullscreen state changes, so instead we're using a
-                // resize event as a signal that the fullscreen state _may_ have
+                // On Linux, we don't have a direct way to react to window
+                // fullscreen state changes, so instead we're using a resize
+                // event as a signal that the fullscreen state _may_ have
                 // changed.
-                #[cfg(any(target_os = "linux", target_os = "freebsd", windows))]
+                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
                 crate::windowing::WindowManager::handle(ctx).update(ctx, |manager, ctx| {
                     manager.update_is_active_window_fullscreen(ctx);
                 });

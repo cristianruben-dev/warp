@@ -703,8 +703,6 @@ impl OperatingSystem {
                 OperatingSystem::Linux
             } else if #[cfg(target_os = "macos")] {
                 OperatingSystem::Mac
-            } else if #[cfg(windows)] {
-                OperatingSystem::Windows
             } else {
                 OperatingSystem::Other(None)
             }
