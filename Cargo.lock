@@ -613,7 +613,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
- "win32job",
 ]
 
 [[package]]
