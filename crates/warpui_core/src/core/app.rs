@@ -65,9 +65,6 @@ use crate::{
     assets, rendering,
 };
 
-#[cfg(feature = "tui")]
-mod tui;
-
 lazy_static! {
     static ref LAST_USER_ACTION_UNIX_TIMESTAMP: AtomicI64 = AtomicI64::new(0);
 }
@@ -4867,28 +4864,18 @@ impl AppContext {
                     view.render(self)
                 }))
             }
-            #[cfg(feature = "tui")]
-            Some(StoredView::Tui(_)) => Err(anyhow!("view is not a GUI view")),
             None => Err(anyhow!("view not found")),
         }
     }
 
-    // This feeds the GUI presenter, so TUI views in the shared registry are
-    // skipped: they are rendered by the TUI presenter via `render_tui_view`
-    // instead. Revisit if a window ever mixes rendered worlds. The clippy
-    // allow is needed because the filter half of `filter_map` is only
-    // exercised when the additive `tui` feature adds the non-GUI variant.
-    #[allow(clippy::unnecessary_filter_map)]
     pub fn render_views(&self, window_id: WindowId) -> Result<EntityIdMap<Box<dyn Element>>> {
         self.windows
             .get(&window_id)
             .map(|w| {
                 w.views
                     .iter()
-                    .filter_map(|(id, view)| match view {
-                        StoredView::Gui(view) => Some((*id, view.render(self))),
-                        #[cfg(feature = "tui")]
-                        StoredView::Tui(_) => None,
+                    .map(|(id, view)| match view {
+                        StoredView::Gui(view) => (*id, view.render(self)),
                     })
                     .collect::<EntityIdMap<_>>()
             })

@@ -12,7 +12,7 @@ fn revision_file_path() -> std::path::PathBuf {
 }
 
 /// Signals running TUI processes to reload their API keys from secure storage.
-#[cfg_attr(not(feature = "tui"), allow(dead_code))]
+#[allow(dead_code)]
 pub fn notify_tui_api_keys_changed() -> anyhow::Result<()> {
     let path = revision_file_path();
     let parent = path
