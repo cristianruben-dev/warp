@@ -80,14 +80,6 @@ mod test_util;
 mod throttle;
 mod tips;
 mod tracing;
-#[cfg(feature = "tui")]
-mod tui;
-#[cfg(feature = "tui")]
-pub mod tui_export;
-#[cfg(feature = "tui")]
-mod tui_onboarding_markers;
-#[cfg(all(feature = "tui", any(test, feature = "test-util")))]
-mod tui_test_support;
 mod ui_components;
 mod undo_close;
 mod uri;
@@ -317,8 +309,6 @@ use crate::terminal::keys::TerminalKeybindings;
 use crate::terminal::resizable_data::ResizableData;
 use crate::terminal::view::inline_banner::ByoLlmAuthBannerSessionState;
 use crate::terminal::{AudibleBell, CustomSecretRegexUpdater, History};
-#[cfg(feature = "tui")]
-pub use crate::tui::{TuiLoginEvent, TuiLoginModel, TuiLoginPhase, log_out_tui};
 use crate::undo_close::UndoCloseStack;
 use crate::user_config::WarpConfig;
 use crate::util::bindings::is_binding_cross_platform;
@@ -422,11 +412,11 @@ pub(crate) enum LaunchMode {
 
     /// Run the headless TUI front-end or a one-shot command using its settings
     /// and secure-storage namespace.
-    #[cfg_attr(not(feature = "tui"), allow(dead_code))]
+    #[allow(dead_code)]
     Tui { entrypoint: TuiEntryPoint },
 }
 
-#[cfg_attr(not(feature = "tui"), allow(dead_code))]
+#[allow(dead_code)]
 enum TuiEntryPoint {
     /// Build the root TUI view, initialize login, and start the TUI driver.
     Interactive {
@@ -729,7 +719,7 @@ impl LaunchMode {
         }
     }
 
-    #[cfg(any(test, all(feature = "tui", feature = "test-util")))]
+    #[cfg(test)]
     pub(crate) fn new_for_unit_test() -> Self {
         LaunchMode::Test {
             driver: Box::new(None),
@@ -961,57 +951,10 @@ pub fn run_integration_test(driver: TestDriver) -> Result<()> {
     run_internal(launch)
 }
 
-/// Runs the headless TUI front-end (the `warp-tui` binary in the `warp_tui`
-/// crate). Bootstraps the real (headless) app and then runs `mount`, which
-/// builds the root TUI view and starts the non-blocking TUI driver.
-///
-/// `mount` is supplied by the `warp_tui` crate (which owns the concrete root
-/// view plus the window/driver bootstrap), so `warp` never has to depend on
-/// `warp_tui`.
-#[cfg(feature = "tui")]
-pub fn run_tui(api_key: Option<String>, mount: TuiMountFn) -> Result<()> {
-    run_internal(LaunchMode::Tui {
-        entrypoint: TuiEntryPoint::Interactive { mount, api_key },
-    })
-}
-
-/// Executes a CLI command after initializing TUI-scoped settings and secure storage.
-#[cfg(feature = "tui")]
-pub fn run_tui_cli_command(execute: Box<dyn FnOnce(&mut warpui::AppContext)>) -> Result<()> {
-    run_internal(LaunchMode::Tui {
-        entrypoint: TuiEntryPoint::CliCommand { execute },
-    })
-}
-
-/// Dispatches a worker command when the current executable was re-invoked for one.
-#[cfg(feature = "tui")]
-pub fn run_tui_worker_if_requested() -> Option<Result<()>> {
-    // Worker spawners always put the worker mode in argv[1]. Do not scan later
-    // arguments because a TUI prompt value may legitimately match a worker name.
-    let is_worker = std::env::args()
-        .nth(1)
-        .is_some_and(|arg| warp_cli::is_worker_invocation(&arg));
-    if !is_worker {
-        return None;
-    }
-
-    features::init_feature_flags();
-    let args = warp_cli::Args::from_env();
-    let Some(warp_cli::Command::Worker(worker)) = args.command() else {
-        return Some(Err(anyhow!(
-            "Recognized a Warp worker invocation, but failed to parse its worker command"
-        )));
-    };
-    Some(run_worker_command(worker))
-}
-
 /// The headless TUI front-end's mount callback, carried by [`LaunchMode::Tui`].
-/// Supplied to [`run_tui`] by the `warp_tui` crate; it runs after
-/// `initialize_app` to build the root TUI view and start the TUI driver.
 pub type TuiMountFn = Box<dyn FnOnce(&mut warpui::AppContext)>;
 
-/// Runs the app (or CLI / daemon). TUI entry points run after `initialize_app`
-/// in place of the GUI/CLI `launch()` path.
+/// Runs the app (or CLI / daemon).
 fn run_internal(mut launch_mode: LaunchMode) -> Result<()> {
     let mut timer = IntervalTimer::new();
 
@@ -1387,14 +1330,8 @@ fn run_internal(mut launch_mode: LaunchMode) -> Result<()> {
         // flow and mounts the TUI (via `crate::tui::init`) instead of the
         // GUI/CLI `launch()` path.
         match launch_mode {
-            #[cfg(feature = "tui")]
-            LaunchMode::Tui { entrypoint } => match entrypoint {
-                TuiEntryPoint::Interactive { mount, .. } => crate::tui::init(mount, ctx),
-                TuiEntryPoint::CliCommand { execute } => execute(ctx),
-            },
-            #[cfg(not(feature = "tui"))]
             LaunchMode::Tui { .. } => {
-                unreachable!("the `tui` launch mode requires the `tui` feature")
+                unreachable!("LaunchMode::Tui is never constructed")
             }
             other => launch(ctx, app_state, other),
         }

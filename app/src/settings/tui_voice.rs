@@ -1,7 +1,5 @@
 use settings::macros::define_settings_group;
 use settings::{SupportedPlatforms, SyncToCloud};
-#[cfg(feature = "tui")]
-use warpui_core::platform::keyboard::KeyCode;
 
 #[derive(
     Clone,
@@ -27,23 +25,6 @@ pub enum TuiVoiceInputHoldKey {
     SuperRight,
     ShiftLeft,
     ShiftRight,
-}
-
-#[cfg(feature = "tui")]
-impl From<TuiVoiceInputHoldKey> for Option<KeyCode> {
-    fn from(key: TuiVoiceInputHoldKey) -> Self {
-        match key {
-            TuiVoiceInputHoldKey::None => None,
-            TuiVoiceInputHoldKey::AltLeft => Some(KeyCode::AltLeft),
-            TuiVoiceInputHoldKey::AltRight => Some(KeyCode::AltRight),
-            TuiVoiceInputHoldKey::ControlLeft => Some(KeyCode::ControlLeft),
-            TuiVoiceInputHoldKey::ControlRight => Some(KeyCode::ControlRight),
-            TuiVoiceInputHoldKey::SuperLeft => Some(KeyCode::SuperLeft),
-            TuiVoiceInputHoldKey::SuperRight => Some(KeyCode::SuperRight),
-            TuiVoiceInputHoldKey::ShiftLeft => Some(KeyCode::ShiftLeft),
-            TuiVoiceInputHoldKey::ShiftRight => Some(KeyCode::ShiftRight),
-        }
-    }
 }
 
 define_settings_group!(TuiVoiceSettings, settings: [
