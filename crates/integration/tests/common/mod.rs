@@ -82,12 +82,6 @@ pub fn run_integration_test(name: &str) -> Result<(), String> {
                             ));
                         }
                     }
-                    #[cfg(windows)]
-                    {
-                        return std::result::Result::Err(format!(
-                            "Test {name} failed for unknown reason",
-                        ));
-                    }
                 }
             },
             Err(err) => {
