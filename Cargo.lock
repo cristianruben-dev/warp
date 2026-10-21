@@ -15185,8 +15185,6 @@ dependencies = [
  "url",
  "uuid",
  "warp_core",
- "warp_util",
- "windows 0.62.2",
 ]
 
 [[package]]
