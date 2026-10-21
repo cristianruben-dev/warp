@@ -15,14 +15,6 @@ use warp_core::channel::ChannelConfig;
 const CONFIG_BIN_NAME: &str = "warp-channel-config";
 
 #[macro_export]
-#[cfg(windows)]
-macro_rules! path_concat {
-    ($path:expr, $file:expr) => {
-        concat!($path, "\\", $file)
-    };
-}
-#[macro_export]
-#[cfg(not(windows))]
 macro_rules! path_concat {
     ($path:expr, $file:expr) => {
         concat!($path, "/", $file)
@@ -64,8 +56,6 @@ pub fn load_config_from_generator(channel: &str) -> ChannelConfig {
 
     let target_os = if cfg!(target_os = "macos") {
         "macos"
-    } else if cfg!(target_os = "windows") {
-        "windows"
     } else {
         "linux"
     };
