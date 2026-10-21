@@ -439,17 +439,13 @@ pub fn app_group_container_path() -> Option<PathBuf> {
 /// ## Linux
 /// The resources directory is `$INSTALL_DIR/resources`, where `$INSTALL_DIR` depends on the
 /// specific package manager. For example, on Ubuntu this might be `/opt/warpdotdev/warp-terminal/resources`.
-///
-/// ## Windows
-/// The resources directory is `$INSTALL_DIR/resources`, where `$INSTALL_DIR` is the directory
-/// containing the Warp executable (e.g. `C:\Program Files\WarpDev\resources`).
 pub fn bundled_resources_dir() -> Option<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "macos")] {
             if cfg!(feature = "standalone") {
                 // Standalone CLI build: the binary is not inside a `.app` bundle, so
                 // its resources live in a sibling `resources` directory next to the
-                // binary (matching the Linux/Windows layout).
+                // binary (matching the Linux layout).
                 std::env::current_exe()
                     .ok()
                     .and_then(|executable| std::fs::canonicalize(executable).ok())
@@ -461,11 +457,6 @@ pub fn bundled_resources_dir() -> Option<PathBuf> {
                     .map(|bundle_path| PathBuf::from(bundle_path).join("Contents").join("Resources"))
             }
         } else if #[cfg(any(target_os = "linux", target_os = "freebsd"))] {
-            std::env::current_exe()
-                .ok()
-                .and_then(|executable| std::fs::canonicalize(executable).ok())
-                .and_then(|executable| executable.parent().map(|parent| parent.join("resources")))
-        } else if #[cfg(target_os = "windows")] {
             std::env::current_exe()
                 .ok()
                 .and_then(|executable| std::fs::canonicalize(executable).ok())
