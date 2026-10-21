@@ -151,12 +151,6 @@ jobs:
             runner: ubuntu-latest-large
             # We don't (yet) have any self-hosted Linux runners.
             is_self_hosted: false
-
-          - os: "windows"
-            name: "Windows"
-            runner: windows-latest-large
-            # We don't (yet) have any self-hosted Windows runners.
-            is_self_hosted: false
     runs-on: ${{ matrix.runner }}
     needs: params
     if: ${{ needs.params.outputs.needs-build == 'true' }}
@@ -183,7 +177,6 @@ jobs:
 
       - name: Echo Shells (UNIX)
         id: echo_shells_unix
-        if: ${{ matrix.os != 'windows' }}
         shell: bash
         run: |
           if ${{ matrix.os == 'macos' }}; then
@@ -213,27 +206,11 @@ jobs:
           echo "powershell_path=$POWERSHELL_PATH" >> $GITHUB_OUTPUT
           echo "::notice title=${{ matrix.name }} Tests - Powershell Version::$POWERSHELL_VERSION"
 
-      - name: Echo Shells (Windows)
-        id: echo_shells_windows
-        if: ${{ matrix.os == 'windows' }}
-        shell: pwsh
-        run: |
-          $env:POWERSHELL_PATH = (Get-Command pwsh).Source
-          $env:POWERSHELL_VERSION = (Get-Command pwsh).Version.Major
-          Write-Output 'Powershell path:' $env:POWERSHELL_PATH
-          Write-Output 'Powershell version:' $env:POWERSHELL_VERSION
-          Write-Output "powershell_path=$env:POWERSHELL_PATH" >> $env:GITHUB_OUTPUT
-          Write-Output "::notice title=${{ matrix.name }} Tests - Powershell Version::$env:POWERSHELL_VERSION"
-
       - name: Echo Default Shell
         id: echo_default_shell
         shell: bash
         run: |
-          if ${{ matrix.os == 'windows' }}; then
-            DEFAULT_SHELL="${{ steps.echo_shells_windows.outputs.powershell_path }}"
-          else
-            DEFAULT_SHELL="${{ steps.echo_shells_unix.outputs.zsh_path }}"
-          fi
+          DEFAULT_SHELL="${{ steps.echo_shells_unix.outputs.zsh_path }}"
           echo "Using default shell '$DEFAULT_SHELL'"
           echo "default_shell_path=$DEFAULT_SHELL" >> $GITHUB_OUTPUT
 
@@ -338,7 +315,7 @@ jobs:
 
       - name: Run shell-agnostic integration tests
         # Run this step even if a previous test step fails
-        if: matrix.os != 'windows' && (success() || failure())
+        if: success() || failure()
         uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
         with:
           run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} -E "package(integration) and not test(shell_integration_tests)${{ env.EXCLUDE_SSH_TESTS_FILTER }}${{ env.EXCLUDE_REMOTE_SERVER_TESTS_FILTER }}"
@@ -349,7 +326,7 @@ jobs:
 
       - name: Upload results of shell-agnostic integration tests to trunk.io
         # Run this step even when the tests fail. Skip if the workflow is cancelled.
-        if: ${{ matrix.os != 'windows' && !cancelled() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
         with:
@@ -363,7 +340,7 @@ jobs:
 
       - name: Run shell integration tests against default version of bash
         # Run this step even if a previous test step fails
-        if: matrix.os != 'windows' && (success() || failure())
+        if: success() || failure()
         uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
         with:
           run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} -E "package(integration) and test(shell_integration_tests)${{ env.EXCLUDE_SSH_TESTS_FILTER }}${{ env.EXCLUDE_REMOTE_SERVER_TESTS_FILTER }}"
@@ -372,7 +349,7 @@ jobs:
 
       - name: Upload results of shell integration tests against default version of bash to trunk.io
         # Run this step even when the tests fail. Skip if the workflow is cancelled.
-        if: ${{ matrix.os != 'windows' && !cancelled() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
         with:
@@ -398,7 +375,7 @@ jobs:
 
       - name: Upload results of shell integration tests against latest version of bash to trunk.io
         # Run this step even when the tests fail. Skip if the workflow is cancelled.
-        if: ${{ matrix.os != 'windows' && !cancelled() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
         with:
@@ -412,7 +389,7 @@ jobs:
 
       - name: Run shell integration tests against fish
         # Run this step even if a previous test step fails
-        if: matrix.os != 'windows' && (success() || failure())
+        if: success() || failure()
         uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
         with:
           run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} -E "package(integration) and test(shell_integration_tests)${{ env.EXCLUDE_SSH_TESTS_FILTER }}${{ env.EXCLUDE_REMOTE_SERVER_TESTS_FILTER }}"
@@ -421,7 +398,7 @@ jobs:
 
       - name: Upload results of shell integration tests against fish to trunk.io
         # Run this step even when the tests fail. Skip if the workflow is cancelled.
-        if: ${{ matrix.os != 'windows' && !cancelled() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
         with:
@@ -435,7 +412,7 @@ jobs:
 
       - name: Run shell integration tests against zsh
         # Run this step even if a previous test step fails
-        if: matrix.os != 'windows' && (success() || failure())
+        if: success() || failure()
         uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
         with:
           run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} -E "package(integration) and test(shell_integration_tests)${{ env.EXCLUDE_SSH_TESTS_FILTER }}${{ env.EXCLUDE_REMOTE_SERVER_TESTS_FILTER }}"
@@ -444,7 +421,7 @@ jobs:
 
       - name: Upload results of shell integration tests against zsh to trunk.io
         # Run this step even when the tests fail. Skip if the workflow is cancelled.
-        if: ${{ matrix.os != 'windows' && !cancelled() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
         with:
@@ -458,7 +435,7 @@ jobs:
 
       - name: Run shell integration tests against powershell
         # Run this step even if a previous test step fails
-        if: matrix.os != 'windows' && (success() || failure())
+        if: success() || failure()
         uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
         with:
           run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} -E "package(integration) and test(shell_integration_tests)${{ env.EXCLUDE_SSH_TESTS_FILTER }}${{ env.EXCLUDE_REMOTE_SERVER_TESTS_FILTER }}"
@@ -467,7 +444,7 @@ jobs:
 
       - name: Upload results of shell integration tests against powershell to trunk.io
         # Run this step even when the tests fail. Skip if the workflow is cancelled.
-        if: ${{ matrix.os != 'windows' && !cancelled() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@14c0f18990953eecd01c9c5afe3cc63a73b6c371 # v2.1.5
         with:
@@ -627,13 +604,6 @@ jobs:
             # We don't (yet) have any self-hosted Linux runners.
             is_self_hosted: false
             null_device: "/dev/null"
-
-          - os: "windows"
-            name: "Windows"
-            runner: windows-latest-large
-            # We don't (yet) have any self-hosted Windows runners.
-            is_self_hosted: false
-            null_device: "NUL"
     runs-on: ${{ matrix.runner }}
     needs: params
     if: ${{ needs.params.outputs.needs-build == 'true' }}
@@ -657,13 +627,8 @@ jobs:
         shell: bash
         run: |
           set -e
-          # On Windows, omit --all-features because pprof and related profiling features don't compile.
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            cargo clippy --locked --workspace --all-targets --tests -- -D warnings
-          else
-            # TODO(vorporeal): Re-enable the `all-features` flag once we've fixed things.
-            cargo clippy --locked --workspace --all-targets --tests -- -D warnings
-          fi
+          # TODO(vorporeal): Re-enable the `all-features` flag once we've fixed things.
+          cargo clippy --locked --workspace --all-targets --tests -- -D warnings
         env:
           # Attach the GitHub auth token so that requests to the GitHub API
           # don't get rate limited during compilation (e.g.: retrieving
@@ -806,13 +771,6 @@ jobs:
             # We don't (yet) have any self-hosted Linux runners.
             is_self_hosted: false
             null_device: "/dev/null"
-
-          - os: "windows"
-            name: "Windows"
-            runner: windows-latest-large
-            # We don't (yet) have any self-hosted Windows runners.
-            is_self_hosted: false
-            null_device: "NUL"
 
           - os: "wasm"
             name: "wasm"
