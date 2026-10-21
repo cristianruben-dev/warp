@@ -643,10 +643,6 @@ async fn fetch_iap_token_via_wif(
 /// How long to wait for `auth print-identity-token` command to respond before killing it.
 const GCLOUD_TIMEOUT: Duration = Duration::from_secs(30);
 
-// gcloud ships as `gcloud.cmd` on Windows
-#[cfg(windows)]
-const GCLOUD_PROGRAM: &str = "gcloud.cmd";
-#[cfg(not(windows))]
 const GCLOUD_PROGRAM: &str = "gcloud";
 
 fn fetch_iap_token(
