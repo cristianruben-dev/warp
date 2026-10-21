@@ -49,12 +49,6 @@ impl SignatureCache {
     }
 
     fn get(&self, command: &str) -> Option<&Signature> {
-        let command = if cfg!(windows) {
-            command.trim_end_matches(".exe")
-        } else {
-            command
-        };
-
         if command.len() > MAX_CACHEABLE_COMMAND_LEN {
             // No known command/subcommand name comes anywhere close to this length, so a token
             // this long can never resolve to anything. Return before the lowercase allocation
@@ -224,11 +218,6 @@ impl CommandRegistry {
         context: &dyn CompletionContext,
     ) -> SignatureResult<'_> {
         let found_signature = tokens.first().and_then(|command| {
-            let command = if cfg!(windows) {
-                command.trim_end_matches(".exe")
-            } else {
-                command
-            };
             self.signatures
                 .get(command)
                 .map(|signature| (signature, self.dynamic_completion_data.get(command)))

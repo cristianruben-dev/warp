@@ -375,19 +375,6 @@ fn test_registered_signature_longer_than_the_cap_is_unresolvable() {
     assert_eq!(registry.signature(&long_name), None);
 }
 
-#[cfg(windows)]
-#[test]
-fn test_exe_suffix_is_trimmed_before_the_length_check() {
-    let max_length_name = "a".repeat(MAX_CACHEABLE_COMMAND_LEN);
-    let registry = create_test_command_registry([signature_with_name(&max_length_name)]);
-
-    let token = format!("{max_length_name}.exe");
-    assert_eq!(
-        registry.signature(&token).map(|s| s.name.as_str()),
-        Some(max_length_name.as_str())
-    );
-}
-
 #[test]
 fn test_registered_commands_unaffected_by_oversized_lookups() {
     let registry = create_test_command_registry([test_signature()]);
