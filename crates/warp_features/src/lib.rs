@@ -1063,7 +1063,6 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::RememberFastForwardState,
     FeatureFlag::GeminiNotifications,
     FeatureFlag::LocalDockerSandbox,
-    #[cfg(not(windows))]
     FeatureFlag::SshRemoteServer,
     FeatureFlag::RemoteCodebaseIndexing,
     FeatureFlag::GPTConfigurableContextWindow,
@@ -1099,10 +1098,8 @@ pub const RELEASE_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::VideoRecording,
     FeatureFlag::WindowsVideoRecording,
     FeatureFlag::ImeMarkedText,
-    // Remote server binary is not yet supported on Windows.
-    #[cfg(not(windows))]
     FeatureFlag::SshRemoteServer,
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     FeatureFlag::DragTabsToWindows,
 ];
 
