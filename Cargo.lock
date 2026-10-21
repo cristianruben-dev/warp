@@ -8137,7 +8137,6 @@ dependencies = [
  "async-channel",
  "async-trait",
  "axum",
- "cfg-if",
  "cloud_object_models",
  "futures",
  "handlebars",
@@ -8161,7 +8160,6 @@ dependencies = [
  "warp_errors",
  "warpui",
  "warpui_extras",
- "windows 0.62.2",
 ]
 
 [[package]]
