@@ -32,8 +32,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-#[cfg(windows)]
-use command::blocking::Command;
 use serde::{Deserialize, Serialize};
 
 use crate::protocol::{ActionMetadata, ControlError, ErrorCode, PROTOCOL_VERSION};
@@ -438,15 +436,7 @@ fn is_pid_alive(pid: u32) -> bool {
     unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
 }
 
-#[cfg(windows)]
-fn is_pid_alive(pid: u32) -> bool {
-    Command::new("tasklist")
-        .args(["/FI", &format!("PID eq {pid}"), "/NH"])
-        .output()
-        .map(|o| !String::from_utf8_lossy(&o.stdout).contains("No tasks"))
-        .unwrap_or(true)
-}
-#[cfg(all(not(unix), not(windows)))]
+#[cfg(not(unix))]
 fn is_pid_alive(_: u32) -> bool {
     false
 }
