@@ -92,13 +92,7 @@ fn is_bin_clangd_path(path: &Path) -> bool {
         return false;
     };
 
-    let expected_name = if cfg!(windows) {
-        "clangd.exe"
-    } else {
-        "clangd"
-    };
-
-    if file_name != expected_name {
+    if file_name != "clangd" {
         return false;
     }
 

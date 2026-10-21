@@ -35,21 +35,11 @@ fn asset_name() -> &'static str {
     {
         "rust-analyzer-aarch64-unknown-linux-gnu.gz"
     }
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    {
-        "rust-analyzer-x86_64-pc-windows-msvc.zip"
-    }
-    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
-    {
-        "rust-analyzer-aarch64-pc-windows-msvc.zip"
-    }
     #[cfg(not(any(
         all(target_os = "macos", target_arch = "aarch64"),
         all(target_os = "macos", target_arch = "x86_64"),
         all(target_os = "linux", target_arch = "x86_64"),
         all(target_os = "linux", target_arch = "aarch64"),
-        all(target_os = "windows", target_arch = "x86_64"),
-        all(target_os = "windows", target_arch = "aarch64"),
     )))]
     {
         todo!("Unsupported platform for rust-analyzer")
@@ -77,11 +67,7 @@ impl RustAnalyzerCandidate {
         }
 
         // Check if any version directory contains a working binary
-        let binary_name = if cfg!(windows) {
-            format!("{}.exe", SERVER_NAME)
-        } else {
-            SERVER_NAME.to_string()
-        };
+        let binary_name = SERVER_NAME.to_string();
 
         let Ok(entries) = std::fs::read_dir(&install_dir) else {
             return None;
