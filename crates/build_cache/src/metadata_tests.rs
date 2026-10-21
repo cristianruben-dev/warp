@@ -230,15 +230,9 @@ fn blocked_metadata_directory_returns_an_error() {
 fn blocked_cache_root_reports_failed_operation() {
     let root = tempfile::NamedTempFile::new().unwrap();
     let directory = root.path().join(".ns");
-    #[cfg(not(windows))]
     let (operation, expected_source) = (
         "inspect directory",
         fs::symlink_metadata(&directory).unwrap_err(),
-    );
-    #[cfg(windows)]
-    let (operation, expected_source) = (
-        "create directory",
-        fs::create_dir_all(&directory).unwrap_err(),
     );
 
     let error = write_cache_metadata(root.path(), []).unwrap_err();
