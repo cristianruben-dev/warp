@@ -14,8 +14,6 @@ use smol_str::SmolStr;
 use typed_path::{TypedPath, TypedPathBuf, WindowsPath};
 use version_compare::{Cmp, Version};
 use warp_completer::completer::{CommandExitStatus, CommandOutput};
-#[cfg(windows)]
-use warp_core::paths::base_config_dir;
 use warp_core::platform::SessionPlatform;
 use warp_errors::report_error;
 use warp_util::path::{
@@ -315,18 +313,8 @@ impl ShellType {
             ShellType::Zsh => vec!["~/.zsh_history".to_string(), "~/.zhistory".to_string()],
             ShellType::Bash => vec!["~/.bash_history".to_string()],
             ShellType::Fish => vec!["~/.local/share/fish/fish_history".to_string()],
-            #[cfg(not(windows))]
             ShellType::PowerShell => {
                 vec!["~/.local/share/powershell/PSReadLine/ConsoleHost_history.txt".to_string()]
-            }
-            #[cfg(windows)]
-            ShellType::PowerShell => {
-                vec![
-                    base_config_dir()
-                        .join("Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt")
-                        .display()
-                        .to_string(),
-                ]
             }
         }
     }
@@ -710,31 +698,7 @@ impl ShellType {
                             })
                             .collect()
                     }
-                    ShellType::PowerShell => {
-                        // Windows allows certain suffixes, e.g. "exe", to be elided.
-                        if cfg!(windows) {
-                            output_string
-                                .lines()
-                                .flat_map(|line| {
-                                    // Those suffixes are contained in `PATHEXT`.
-                                    for ext in PATHEXT {
-                                        // If the command ends with one of those suffixes, tell
-                                        // Warp about this command as-is and also sans-suffix, e.g.
-                                        // "git" and "git.exe".
-                                        if line.to_lowercase().ends_with(&ext.to_lowercase()) {
-                                            let trimmed = &line[..line.len() - ext.len()];
-                                            return Box::<[&str]>::from([trimmed, line]);
-                                        }
-                                    }
-                                    // Otherwise, pass it through unaltered.
-                                    Box::<[&str]>::from([line])
-                                })
-                                .map_into()
-                                .collect()
-                        } else {
-                            output_string.lines().map_into().collect()
-                        }
-                    }
+                    ShellType::PowerShell => output_string.lines().map_into().collect(),
                 }
             }
             Ok(output) => {
@@ -794,7 +758,7 @@ pub enum ShellLaunchData {
         shell_type: ShellType,
     },
     /// Windows Subsystem for Linux.
-    #[cfg_attr(not(windows), allow(dead_code))]
+    #[allow(dead_code)]
     WSL { distro: String },
     MSYS2 {
         executable_path: PathBuf,

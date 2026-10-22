@@ -15,8 +15,6 @@ pub mod spawner;
 pub mod terminal_attributes;
 #[cfg(unix)]
 mod unix;
-#[cfg(windows)]
-pub mod windows;
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -29,8 +27,6 @@ use shell::ShellStarter;
 
 #[cfg(unix)]
 pub use self::unix::*;
-#[cfg(windows)]
-pub use self::windows::*;
 use crate::SizeInfo;
 use crate::event::ObservedExitStatus;
 

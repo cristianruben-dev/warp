@@ -179,18 +179,6 @@ impl ansi::Handler for GridHandler {
     }
 
     fn input(&mut self, c: char) {
-        // We disable Reset Grid checks in tests, as they are not designed to test
-        // PTY integration. `not(test)` covers this crate's own unit tests, and
-        // `not(feature = "test-util")` covers other crates (e.g. `warp_tui`) that
-        // build real terminal models against `warp`'s test helpers.
-        #[cfg(all(windows, not(test), not(feature = "test-util")))]
-        if let ResetGridChecks::Enabled { received_osc } = self.ansi_handler_state.reset_grid_checks
-        {
-            debug_assert!(
-                received_osc,
-                "Grid received input but did not receive Reset Grid OSC"
-            );
-        }
         // Number of cells the char will occupy.
         let Some(width) = c.width() else {
             return;

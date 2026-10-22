@@ -28,7 +28,7 @@ lazy_static! {
 pub fn load_and_escape_script(file_path: &str, assets: &dyn AssetProvider) -> String {
     load_script(file_path, assets)
         .replace('\'', r#"'"'"'"#)
-        .replace("@@USING_CON_PTY_BOOLEAN@@", &(cfg!(windows).to_string()))
+        .replace("@@USING_CON_PTY_BOOLEAN@@", "false")
 }
 
 fn load_script(file_path: &str, assets: &dyn AssetProvider) -> String {
@@ -49,7 +49,7 @@ fn load_script(file_path: &str, assets: &dyn AssetProvider) -> String {
 ///
 /// Gated on `unix` because the sole caller today is the Unix Docker
 /// sandbox spawn path (`local_tty::unix::prepare_docker_sandbox`); on
-/// Windows/wasm the function is dead code.
+/// wasm the function is dead code.
 #[cfg(unix)]
 pub fn raw_init_shell_script_for_shell(
     shell_type: ShellType,
@@ -63,7 +63,7 @@ pub fn raw_init_shell_script_for_shell(
         ShellType::PowerShell => "bundled/bootstrap/pwsh_init_shell.ps1",
     };
     load_script(file, assets)
-        .replace("@@USING_CON_PTY_BOOLEAN@@", &(cfg!(windows).to_string()))
+        .replace("@@USING_CON_PTY_BOOLEAN@@", "false")
         .replace(SESSION_ID_PLACEHOLDER, &session_id.as_u64().to_string())
 }
 /// Returns the bootstrap script that should be used when initializing a shell
@@ -136,10 +136,7 @@ pub fn script_for_shell(shell_type: ShellType, assets: &dyn AssetProvider) -> Co
                                 });
                                 let data_string =
                                     unsafe { String::from_utf8_unchecked(data.to_vec()) };
-                                data_string.replace(
-                                    "@@USING_CON_PTY_BOOLEAN@@",
-                                    &(cfg!(windows).to_string()),
-                                )
+                                data_string.replace("@@USING_CON_PTY_BOOLEAN@@", "false")
                             })
                             .split('\n')
                             .map(trim_and_borrow_line)
