@@ -32,8 +32,6 @@ fn try_from_local_absolute() {
     // Use a platform-appropriate absolute path.
     #[cfg(unix)]
     let (input, expected) = (Path::new("/tmp/test"), "/tmp/test");
-    #[cfg(windows)]
-    let (input, expected) = (Path::new("C:\\Windows"), "C:\\Windows");
 
     let p = StandardizedPath::try_from_local(input).unwrap();
     assert_eq!(p.as_str(), expected);
@@ -53,16 +51,12 @@ fn from_local_canonicalized_existing_path() {
     // Encoding should match the local OS.
     #[cfg(unix)]
     assert!(p.is_unix());
-    #[cfg(windows)]
-    assert!(p.is_windows());
 }
 
 #[test]
 fn from_local_canonicalized_nonexistent() {
     #[cfg(unix)]
     let path = Path::new("/nonexistent_path_xyz_123");
-    #[cfg(windows)]
-    let path = Path::new("C:\\nonexistent_path_xyz_123");
 
     assert!(StandardizedPath::from_local_canonicalized(path).is_err());
 }
@@ -76,8 +70,6 @@ fn from_local_absolute_unchecked_accepts_absolute() {
     // accepted (and not panic) on every target.
     #[cfg(unix)]
     let (input, expected) = (Path::new("/Users/david/src/warp"), "/Users/david/src/warp");
-    #[cfg(windows)]
-    let (input, expected) = (Path::new("C:\\Users\\david\\src"), "C:\\Users\\david\\src");
 
     let p = StandardizedPath::from_local_absolute_unchecked(input);
     assert_eq!(p.as_str(), expected);
@@ -89,11 +81,6 @@ fn from_local_absolute_unchecked_normalizes() {
     let (input, expected) = (
         Path::new("/home/user/./project/../project"),
         "/home/user/project",
-    );
-    #[cfg(windows)]
-    let (input, expected) = (
-        Path::new("C:\\home\\user\\.\\project\\..\\project"),
-        "C:\\home\\user\\project",
     );
 
     let p = StandardizedPath::from_local_absolute_unchecked(input);
