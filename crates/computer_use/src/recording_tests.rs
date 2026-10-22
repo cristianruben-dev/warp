@@ -31,31 +31,6 @@ fn removes_unclaimed_output_when_handle_is_dropped() {
 
     assert!(!path.exists());
 }
-#[cfg(windows)]
-#[test]
-fn removes_unclaimed_output_when_handle_is_dropped_windows() {
-    let path =
-        std::env::temp_dir().join(format!("warp-recording-drop-test-{}", std::process::id()));
-    let log_path = path.with_extension("log");
-    std::fs::write(&path, b"video").unwrap();
-    std::fs::write(&log_path, b"log").unwrap();
-    let handle = RecordingHandle {
-        width: 1,
-        height: 1,
-        capture_origin: Vector2I::new(0, 0),
-        exit_state: Arc::new(Mutex::new(None)),
-        path: path.clone(),
-        started_at: instant::Instant::now(),
-        process: None,
-        cleanup_on_drop: true,
-    };
-
-    drop(handle);
-
-    assert!(!path.exists());
-    assert!(!log_path.exists());
-}
-
 #[cfg(macos)]
 #[test]
 fn removes_unclaimed_output_when_handle_is_dropped_macos() {
@@ -106,8 +81,8 @@ async fn start_reports_unsupported_when_ffmpeg_absent() {
     // "video recording is not supported on this platform" error never names
     // ffmpeg — so the assertion below would fail on a macOS runner and the test
     // could not verify spec criterion 3. `imp` is `mac::recording::Recorder` on
-    // macOS (the `noop as imp` alias is only set for non-mac/linux/windows
-    // targets), so this exercises the real ffmpeg-absent path.
+    // macOS (the `noop as imp` alias is only set for non-mac/linux targets), so this
+    // exercises the real ffmpeg-absent path.
     let result = crate::imp::Recorder::new()
         .start(RecordingConfig::default())
         .await;

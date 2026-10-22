@@ -16,9 +16,7 @@ pub(super) async fn video_duration(input: &Path) -> Result<Duration, RecordingEr
 }
 
 /// Same as [`video_duration`], but probes with an explicit `ffmpeg` binary instead of resolving
-/// one from `PATH`. The Windows recorder uses this to validate a just-finalized capture with the
-/// same ffmpeg binary it recorded with, and tests use it to point at a fake ffmpeg script
-/// instead of a real binary.
+/// one from `PATH`, so tests can point at a fake ffmpeg script instead of a real binary.
 pub(super) async fn video_duration_with_ffmpeg(
     ffmpeg: &Path,
     input: &Path,
