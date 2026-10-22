@@ -1631,7 +1631,6 @@ pub fn test_completions() {
     #[cfg(unix)]
     assert!(complete_at_end_of_line("cd /", &ctx).contains(&TEST_ROOT_DIR.to_owned()));
 
-
     let git_subcommands = vec!["add", "branch", "checkout", "clone"];
     assert_eq!(complete_at_end_of_line("git ", &ctx), git_subcommands);
 
