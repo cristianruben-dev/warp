@@ -8,12 +8,10 @@
 
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_os = "windows")]
-mod windows;
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use warp_core::channel::ChannelState;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "macos")]
 use warpui::AppContext;
 
 /// Reconciles whether Warp is registered to launch at login with the user's
@@ -28,7 +26,7 @@ use warpui::AppContext;
 /// tests never touch the user's real login items / registry. Also skipped for
 /// non-release-bundle builds (e.g. `cargo run`), so developer machines don't
 /// auto-launch `target/debug/{warp,openwarp,...}` at sign-in.
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "macos")]
 pub fn maybe_register_app_as_login_item(ctx: &mut AppContext) {
     if std::env::var("WARP_INTEGRATION").is_ok() {
         log::debug!("Not registering as a login item in integration tests");
@@ -40,6 +38,4 @@ pub fn maybe_register_app_as_login_item(ctx: &mut AppContext) {
     }
     #[cfg(target_os = "macos")]
     macos::maybe_register_app_as_login_item(ctx);
-    #[cfg(target_os = "windows")]
-    windows::maybe_register_app_as_login_item(ctx);
 }

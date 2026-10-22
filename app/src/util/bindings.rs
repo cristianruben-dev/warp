@@ -113,10 +113,6 @@ pub enum CustomAction {
     OpenTeamSettings,
     ShareCurrentSession,
     SharePaneContents,
-    #[cfg(windows)]
-    WindowsPaste,
-    #[cfg(windows)]
-    WindowsCopy,
     /// Also applies to legacy Warp AI (toggles the panel)
     NewAgentModePane,
     /// Also applies to legacy Warp AI (attaches the selection to the panel editor)
@@ -269,10 +265,6 @@ pub fn custom_tag_to_keystroke(custom: CustomTag) -> Option<Keystroke> {
         CustomAction::Cut => Keystroke::parse("cmdorctrl-x").ok(),
         CustomAction::Copy => Keystroke::parse(cmd_or_ctrl_shift("c")).ok(),
         CustomAction::Paste => Keystroke::parse(cmd_or_ctrl_shift("v")).ok(),
-        #[cfg(windows)]
-        CustomAction::WindowsPaste => Keystroke::parse("ctrl-v").ok(),
-        #[cfg(windows)]
-        CustomAction::WindowsCopy => Keystroke::parse("ctrl-c").ok(),
         CustomAction::Undo => Keystroke::parse("cmdorctrl-z").ok(),
         CustomAction::Redo => Keystroke::parse("cmdorctrl-shift-Z").ok(),
         CustomAction::ClearEditor => Keystroke::parse("ctrl-c").ok(),

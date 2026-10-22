@@ -581,11 +581,6 @@ fn create_symlink(source: &Path, target: &Path) -> std::io::Result<()> {
     std::os::unix::fs::symlink(source, target)
 }
 
-#[cfg(windows)]
-fn create_symlink(source: &Path, target: &Path) -> std::io::Result<()> {
-    std::os::windows::fs::symlink_dir(source, target)
-}
-
 #[cfg(test)]
 #[path = "skill_dirs_publish_tests.rs"]
 mod tests;

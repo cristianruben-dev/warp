@@ -21,7 +21,6 @@ pub struct WslCommandExecutor {
 }
 
 impl WslCommandExecutor {
-    #[cfg_attr(not(windows), allow(dead_code))]
     pub fn new(distro_name: String, shell_type: ShellType) -> Self {
         Self {
             distro_name,

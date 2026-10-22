@@ -16,11 +16,9 @@ use crate::ai::agent::conversation::AIConversationId;
 /// Returns whether computer-use video recording is available on the current platform.
 ///
 /// Callers should prefer this over reading [`FeatureFlag::VideoRecording`] directly, so the
-/// Windows-only [`FeatureFlag::WindowsVideoRecording`] gate stays consistent across the
-/// recording tool surface.
+/// recording tool surface stays gated consistently.
 pub(crate) fn video_recording_enabled() -> bool {
     FeatureFlag::VideoRecording.is_enabled()
-        && (!cfg!(windows) || FeatureFlag::WindowsVideoRecording.is_enabled())
 }
 
 /// Why a recording finalization ran. Distinct from the caller's claimed reason

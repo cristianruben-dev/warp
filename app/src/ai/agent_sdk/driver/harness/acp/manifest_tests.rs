@@ -9,9 +9,6 @@ use warp_cli::agent::Harness;
 
 use super::{MANIFEST_FILE, discover, read_manifest, resolve_sidecar_program};
 
-#[cfg(windows)]
-const PROGRAM: &str = "adapter.exe";
-#[cfg(not(windows))]
 const PROGRAM: &str = "adapter";
 
 fn write_manifest(path: &Path, args: &[&str]) {

@@ -186,7 +186,6 @@ fn custom_theme_windows_unc_path_string_is_preserved() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn custom_theme_relative_backslash_path_is_preserved() {
     let root = PathBuf::from("/Users/example/.warp/themes");
     let stored = PathBuf::from(r"catppuccin\mocha.yml");
@@ -195,7 +194,6 @@ fn custom_theme_relative_backslash_path_is_preserved() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn custom_theme_relative_backslash_path_is_not_portable() {
     let root = PathBuf::from("/Users/example/.warp/themes");
     let stored = PathBuf::from(r"catppuccin\mocha.yml");
@@ -204,7 +202,6 @@ fn custom_theme_relative_backslash_path_is_not_portable() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn custom_theme_relative_backslash_path_storage_helper_preserves_path() {
     let root = PathBuf::from("/Users/example/.warp/themes");
     let stored = PathBuf::from(r"catppuccin\mocha.yml");
@@ -312,109 +309,6 @@ fn custom_base16_theme_kind_uses_custom_theme_settings_value_path_rules() {
             }
         })
     );
-}
-
-#[cfg(windows)]
-mod windows_custom_theme_path_tests {
-    use super::*;
-
-    fn windows_theme_root() -> PathBuf {
-        PathBuf::from(r"C:\Users\example\AppData\Roaming\warp\Warp\data\themes")
-    }
-
-    #[test]
-    fn custom_theme_windows_theme_root_path_serializes_with_slashes() {
-        let root = windows_theme_root();
-        let path = root.join("catppuccin").join("mocha.yml");
-
-        assert_eq!(
-            custom_theme_path_for_storage(&path, &root),
-            PathBuf::from("catppuccin/mocha.yml")
-        );
-        assert_eq!(
-            portable_custom_theme_storage_string(&path, &root).as_deref(),
-            Some("catppuccin/mocha.yml")
-        );
-    }
-
-    #[test]
-    fn custom_theme_windows_slash_stored_path_resolves_under_theme_root() {
-        let root = windows_theme_root();
-        let stored = PathBuf::from("catppuccin/mocha.yml");
-
-        assert_eq!(
-            custom_theme_path_from_storage(&stored, &root),
-            root.join("catppuccin").join("mocha.yml")
-        );
-        assert_eq!(
-            portable_custom_theme_path_from_stored_raw("catppuccin/mocha.yml", &root),
-            root.join("catppuccin").join("mocha.yml")
-        );
-    }
-
-    #[test]
-    fn custom_theme_windows_theme_root_path_is_portable() {
-        let root = windows_theme_root();
-        let path = root.join("catppuccin").join("mocha.yml");
-
-        assert!(custom_theme_path_is_portable(&path, &root));
-    }
-
-    #[test]
-    fn custom_theme_windows_raw_unportable_stored_paths_are_preserved() {
-        let root = windows_theme_root();
-
-        for raw_path in [
-            r"catppuccin\mocha.yml",
-            "C:/Users/example/AppData/Roaming/warp/Warp/data/themes/mocha.yml",
-            "C:themes/mocha.yml",
-        ] {
-            assert_eq!(
-                portable_custom_theme_path_from_stored_raw(raw_path, &root),
-                PathBuf::from(raw_path)
-            );
-        }
-    }
-
-    #[test]
-    fn custom_theme_windows_raw_unportable_paths_are_not_portable() {
-        let root = windows_theme_root();
-
-        for raw_path in [
-            r"catppuccin\mocha.yml",
-            "C:/Users/example/AppData/Roaming/warp/Warp/data/themes/mocha.yml",
-            "C:themes/mocha.yml",
-        ] {
-            assert!(!custom_theme_path_is_portable(
-                &PathBuf::from(raw_path),
-                &root
-            ));
-        }
-    }
-
-    #[test]
-    fn custom_theme_windows_settings_value_serializes_theme_root_file_with_slashes() {
-        let root_path = user_config::themes_dir()
-            .join("catppuccin")
-            .join("mocha.yml");
-        let custom = CustomTheme::new("Mocha".to_string(), root_path);
-
-        let value = custom.to_file_value();
-
-        assert_eq!(value["path"], "catppuccin/mocha.yml");
-    }
-
-    #[test]
-    fn custom_theme_windows_serde_serializes_theme_root_file_with_slashes() {
-        let root_path = user_config::themes_dir()
-            .join("catppuccin")
-            .join("mocha.yml");
-        let custom = CustomTheme::new("Mocha".to_string(), root_path);
-
-        let value = serde_json::to_value(custom).unwrap();
-
-        assert_eq!(value["path"], "catppuccin/mocha.yml");
-    }
 }
 
 #[test]

@@ -875,7 +875,7 @@ fn test_vim_linewise_operations_at_eof() {
         let one_line_delete = add_code_editor("one", &mut app);
         vim_user_insert(&one_line_delete, "dd", &mut app);
         assert_eq!(buffer_text(&one_line_delete, &app), "");
-        let default_line_ending = if cfg!(windows) { "\r\n" } else { "\n" };
+        let default_line_ending = "\n";
 
         let one_line_yank = add_code_editor("one", &mut app);
         vim_user_insert(&one_line_yank, "yyP", &mut app);

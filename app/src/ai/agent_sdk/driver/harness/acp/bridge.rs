@@ -319,20 +319,6 @@ fn relay_agent(
         .stderr(Stdio::inherit())
         .spawn()
         .with_context(|| format!("Failed to start ACP agent `{program}`"))?;
-    #[cfg(windows)]
-    {
-        use std::os::windows::io::AsRawHandle as _;
-        // Ties the agent and anything it spawns (the shim's `node`, for instance) to this
-        // process: when the bridge exits for any reason, including being killed, the job closes
-        // and the whole agent tree goes with it.
-        if let Err(error) = command::windows::JobObject::new()
-            .assign_process(child.as_raw_handle() as isize)
-            .kill_children_on_close()
-            .create()
-        {
-            eprintln!("acp-bridge: the agent will outlive the bridge if killed: {error:#}");
-        }
-    }
     let mut agent_stdin = child.stdin.take().context("agent has no stdin")?;
     let mut agent_stdout = child.stdout.take().context("agent has no stdout")?;
 

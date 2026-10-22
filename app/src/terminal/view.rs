@@ -435,9 +435,6 @@ use crate::terminal::links::should_directly_open_link;
 use crate::terminal::local_tty::get_shell_starter;
 #[cfg(feature = "local_tty")]
 use crate::terminal::local_tty::shell::ShellStarter;
-#[cfg(feature = "local_tty")]
-#[cfg(all(windows, feature = "local_tty"))]
-use crate::terminal::local_tty::windows::get_user_and_system_env_variable;
 use crate::terminal::model::ansi::{ClearMode, Handler};
 use crate::terminal::model::block::{
     AgentInteractionMetadata, Block, BlockId, BlockMetadata, LONG_RUNNING_BOTTOM_PADDING_LINES,
@@ -7021,10 +7018,6 @@ impl TerminalView {
                     CLISubagentViewEvent::CopiedEmptyText => {
                         me.copy(ctx);
                     }
-                    #[cfg(windows)]
-                    CLISubagentViewEvent::WindowsCtrlC => {
-                        me.ctrl_c(ctx);
-                    }
                 });
 
                 if let Some(initial_requested_command_id) = initial_requested_command_action_id {
@@ -9335,35 +9328,6 @@ impl TerminalView {
         ctx.notify();
     }
 
-    /// Copy if there is a selection. Otherwise, we defer to the normal ctrl-c
-    /// behaviour.
-    #[cfg(windows)]
-    fn ctrl_c_internal(
-        &mut self,
-        has_copiable_block_selection: bool,
-        has_block_list_selection: bool,
-        has_alt_screen_selection: bool,
-        active_block_state: CtrlCActiveBlockState,
-        ctx: &mut ViewContext<Self>,
-    ) {
-        if has_block_list_selection {
-            self.copy(ctx);
-            self.clear_selections_when_shell_mode_without_focusing_input(ctx);
-            return;
-        } else if has_alt_screen_selection {
-            self.copy(ctx);
-            self.model.lock().alt_screen_mut().clear_selection();
-            return;
-        } else if has_copiable_block_selection {
-            // If there are blocks selected, we want to copy them but
-            // not prevent the normal ctrl-c behaviour.
-            self.copy(ctx);
-            self.clear_selections_when_shell_mode_without_focusing_input(ctx);
-        }
-
-        self.ctrl_c_to_active_block(active_block_state, ctx);
-    }
-
     /// Focuses the provided AI block if this terminal view (or some part of it)
     /// are focused. This helps ensure AI block interactions (which are primarily async)
     /// don't steal focus from the user if they've focused another part of the app
@@ -9418,7 +9382,6 @@ impl TerminalView {
             .is_queued_prompt_inline_editor_focused(ctx)
     }
 
-    #[cfg(not(windows))]
     fn ctrl_c_internal(
         &mut self,
         has_copiable_block_selection: bool,
@@ -14671,37 +14634,7 @@ impl TerminalView {
     fn local_session_path(session: &Session) -> Option<String> {
         if matches!(session.session_type(), SessionType::Local) && session.subshell_info().is_none()
         {
-            #[cfg(all(windows, feature = "local_tty"))]
-            let path = {
-                let path_result =
-                    get_user_and_system_env_variable("PATH").map(|entry| entry.into_string());
-                let result = match path_result {
-                    Some(Ok(path_result)) => Some(path_result),
-                    None => {
-                        log::warn!("Failed to get PATH for session on Windows.");
-                        None
-                    }
-                    Some(Err(e)) => {
-                        log::warn!("Failed to convert PATH for session on Windows: `{e:?}`");
-                        None
-                    }
-                };
-                if result.is_none() {
-                    if session.shell_family() == ShellFamily::PowerShell {
-                        // This is a fallback for if the OsString cannot be converted to a String.
-                        // We cannot accept a Posix PATH on Windows.
-                        session.path().clone()
-                    } else {
-                        None
-                    }
-                } else {
-                    result
-                }
-            };
-            #[cfg(not(all(windows, feature = "local_tty")))]
-            let path = session.path().clone();
-
-            return path;
+            return session.path().clone();
         }
         None
     }
@@ -17429,24 +17362,8 @@ impl TerminalView {
             let clipboard_content = ctx.clipboard().read();
 
             if is_cli_agent_paste && clipboard_content.has_image_data() {
-                if !cfg!(windows) {
-                    self.write_user_bytes_to_pty(vec![escape_sequences::C0::SYN], ctx);
-                    return;
-                }
-
-                // On Windows, Claude Code uses Alt+V for native image paste.
-                let is_claude = CLIAgentSessionsModel::as_ref(ctx)
-                    .session(self.view_id)
-                    .is_some_and(|s| s.agent == CLIAgent::Claude);
-                if is_claude {
-                    self.write_user_bytes_to_pty(vec![escape_sequences::C0::ESC, b'v'], ctx);
-                    return;
-                }
-
-                // For all other agents on Windows, fall through to the normal paste path. When
-                // bracketed paste is enabled (true for TUI-based CLI agents), the empty-text paste
-                // sends \x1b[200~\x1b[201~ to the PTY. The agent interprets this as a "paste
-                // happened" signal and reads the Windows clipboard directly for image data.
+                self.write_user_bytes_to_pty(vec![escape_sequences::C0::SYN], ctx);
+                return;
             }
 
             clipboard_content_with_escaped_paths(clipboard_content, shell_family, false)
@@ -21354,7 +21271,6 @@ impl TerminalView {
         ctx.notify();
     }
 
-    #[cfg_attr(not(windows), allow(dead_code))]
     fn clear_selections_when_shell_mode_without_focusing_input(
         &mut self,
         ctx: &mut ViewContext<Self>,
@@ -21539,10 +21455,6 @@ impl TerminalView {
             AIBlockEvent::DismissSecretTooltip => {
                 self.open_secret_tool_tip = None;
                 ctx.notify();
-            }
-            #[cfg(windows)]
-            AIBlockEvent::WindowsCtrlC => {
-                self.ctrl_c(ctx);
             }
             AIBlockEvent::AIOutputUpdated => {
                 self.model
@@ -27093,20 +27005,6 @@ impl TerminalView {
         if sshed && !paths.is_empty() && FeatureFlag::SshDragAndDrop.is_enabled() {
             self.initiate_ssh_file_upload(paths, ctx);
         } else {
-            // For long-running commands in MSYS2/Git Bash on Windows, skip
-            // conversion and shell escaping. Executables in git bash
-            // aren't git bash _specific_, they still expect paths in
-            // the native windows format.
-            let is_msys2_long_running = cfg!(windows)
-                && !session.is_wsl()
-                && session.shell_family() == ShellFamily::Posix
-                && is_in_long_running_command;
-            if is_msys2_long_running {
-                let input = warpui::clipboard_utils::escaped_paths_str(paths, None);
-                self.typed_characters_on_terminal(&input, ctx);
-                return;
-            }
-
             // For WSL sessions on Windows, convert paths to /mnt/<drive>/... format
             // so the WSL session can read the file at the correct path.
             let paths_converted;
@@ -27460,27 +27358,6 @@ impl TerminalSurface for TerminalView {
             // banner to the user if the bootstrapping takes too long
             self.start_bootstrap_timer(BOOTSTRAP_FAILED_DURATION, ctx);
         }
-    }
-
-    fn on_active_shell_launch_data_updated(
-        &mut self,
-        shell_launch_data: Option<ShellLaunchData>,
-        ctx: &mut ViewContext<Self>,
-    ) {
-        if !cfg!(windows) {
-            return;
-        }
-
-        let shell_indicator_type = shell_launch_data
-            .as_ref()
-            .and_then(|data| ShellIndicatorType::try_from(data).ok());
-        self.shell_indicator_type = shell_indicator_type;
-        self.shell_detail = shell_launch_data.map(|launch_data| launch_data.shell_detail());
-
-        // Notify pane header to re-render with updated shell indicator.
-        self.pane_configuration.update(ctx, |config, ctx| {
-            config.notify_header_content_changed(ctx);
-        });
     }
 
     #[cfg(feature = "local_tty")]

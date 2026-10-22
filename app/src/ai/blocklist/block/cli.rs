@@ -809,10 +809,6 @@ impl CLISubagentView {
                     CodeEditorEvent::CopiedEmptyText => {
                         ctx.emit(CLISubagentViewEvent::CopiedEmptyText);
                     }
-                    #[cfg(windows)]
-                    CodeEditorEvent::WindowsCtrlC { .. } => {
-                        ctx.emit(CLISubagentViewEvent::WindowsCtrlC);
-                    }
                     _ => {}
                 });
                 self.code_editor_views.push(EmbeddedCodeEditorView {
@@ -955,8 +951,6 @@ impl CLISubagentView {
 pub enum CLISubagentViewEvent {
     TextSelected,
     CopiedEmptyText,
-    #[cfg(windows)]
-    WindowsCtrlC,
 }
 
 impl Entity for CLISubagentView {

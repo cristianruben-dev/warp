@@ -2,8 +2,6 @@ pub mod external_editor;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-#[cfg(windows)]
-use warp_util::path::is_network_resource;
 use warp_util::path::{CleanPathResult, LineAndColumnArg};
 
 pub use self::external_editor::{open_file_path_in_external_editor, open_file_path_with_editor};
@@ -77,13 +75,6 @@ pub fn absolute_path_if_valid(
 }
 
 fn is_path_valid(path: &Path, clean_path_result: &CleanPathResult) -> bool {
-    // Checking for the existence of a network resource takes a long time (~15s),
-    // and hangs the UI, so we skip validating it.
-    #[cfg(windows)]
-    if is_network_resource(path) {
-        return false;
-    }
-
     // It should only be a valid path if the path links to a file or a folder without
     // line and column number attached.
     let Ok(metadata) = fs::metadata(path) else {

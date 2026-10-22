@@ -413,11 +413,6 @@ pub struct Block {
     /// If `true`, the prompt+command grid should not be rendered.
     should_hide_command_grid: bool,
 
-    /// [`Self::linefeed`] may discard some linefeeds at the beginning of the prompt. Doing so will
-    /// alter the row numbers for [`Self::goto`] and [`Self::goto_line`] when ConPTY is involved. We
-    /// track the count of discarded newlines here in order to correct the row number.
-    leading_linefeeds_ignored: usize,
-
     /// `true` if client-side telemetry for user-generated AI data is enabled.
     pub(super) is_ai_ugc_telemetry_enabled: bool,
 
@@ -939,17 +934,12 @@ impl Block {
         is_ai_ugc_telemetry_enabled: bool,
         conversation_id: Option<AIConversationId>,
     ) -> Self {
-        let perform_reset_grid_checks = if cfg!(windows) && bootstrap_stage.is_done() {
-            PerformResetGridChecks::Yes
-        } else {
-            PerformResetGridChecks::No
-        };
         let header_grid = HeaderGrid::new(
             sizes.clone(),
             event_proxy.clone(),
             should_scan_for_secrets,
             honor_ps1,
-            perform_reset_grid_checks,
+            PerformResetGridChecks::No,
         );
         let rprompt_grid = BlockGrid::new(
             sizes.size,
@@ -965,7 +955,7 @@ impl Block {
             sizes.max_block_scroll_limit,
             event_proxy.clone(),
             should_scan_for_secrets,
-            perform_reset_grid_checks,
+            PerformResetGridChecks::No,
         );
 
         Block {
@@ -1014,7 +1004,6 @@ impl Block {
             hidden: false,
             should_hide_output_grid: false,
             should_hide_command_grid: false,
-            leading_linefeeds_ignored: 0,
             is_ai_ugc_telemetry_enabled,
             restored_block_was_local: None,
             agent_view_visibility: match conversation_id {
@@ -3005,7 +2994,6 @@ impl Block {
             });
         }
 
-        self.leading_linefeeds_ignored = 0;
         self.output_grid.start();
         self.state = BlockState::Executing;
         self.is_for_in_band_command = is_for_in_band_command;
@@ -3021,7 +3009,6 @@ impl Block {
 
         self.ensure_started_for_preexec();
         self.header_grid.finish_command_grid();
-        self.leading_linefeeds_ignored = 0;
         self.output_grid.start();
         self.state = BlockState::Executing;
         self.is_for_in_band_command |=
@@ -3126,15 +3113,10 @@ impl ansi::Handler for Block {
     }
 
     fn goto(&mut self, row: VisibleRow, column: usize) {
-        // Only apply this correction for ConPTY.
-        #[cfg(windows)]
-        let row = row.saturating_sub(self.leading_linefeeds_ignored);
         delegate!(self.goto(row, column));
     }
 
     fn goto_line(&mut self, row: VisibleRow) {
-        #[cfg(windows)]
-        let row = row.saturating_sub(self.leading_linefeeds_ignored);
         delegate!(self.goto_line(row));
     }
 
@@ -3202,11 +3184,9 @@ impl ansi::Handler for Block {
         // blocks.
         match self.header_grid.receiving_chars_for_prompt {
             Some(ansi::PromptKind::Initial) if !self.header_grid.prompt_has_received_content() => {
-                self.leading_linefeeds_ignored += 1;
                 return ScrollDelta::zero();
             }
             Some(ansi::PromptKind::Right) if !self.rprompt_grid.has_received_content() => {
-                self.leading_linefeeds_ignored += 1;
                 return ScrollDelta::zero();
             }
             _ => {}

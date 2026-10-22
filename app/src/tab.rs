@@ -1233,10 +1233,9 @@ impl<'a> TabComponent<'a> {
         let tooltip_message = Self::get_tooltip_message(&indicator, tab, ctx);
         let tooltip_directory = Self::get_tooltip_directory(&indicator, tab, ctx);
         let tooltip_git_branch = Self::get_tooltip_git_branch(&indicator, tab, ctx);
-        let window_id = tab.pane_group.window_id(ctx);
         let background_opacity = WindowSettings::as_ref(ctx)
             .background_opacity
-            .effective_opacity(window_id, ctx)
+            .effective_opacity()
             .clamp(20, 100);
         let pane_group_id = tab.pane_group.id();
         let pane_id = tab.pane_group.as_ref(ctx).focused_pane_id(ctx);

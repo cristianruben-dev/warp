@@ -1,5 +1,3 @@
-mod wsl_guest_listing;
-
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::path::Path;
@@ -58,7 +56,7 @@ impl SessionContext {
         directory: TypedPathBuf,
     ) -> Arc<Vec<EngineDirEntry>> {
         let result = Arc::new(
-            self.list_directory_entries_internal(&directory.to_path(), false)
+            self.list_directory_entries_internal(&directory.to_path())
                 .await,
         );
         if !(self.session.is_wsl() && matches!(self.session.session_type(), SessionType::Local)) {
@@ -71,27 +69,9 @@ impl SessionContext {
     async fn list_directory_entries_internal(
         &self,
         directory: &TypedPath<'_>,
-        allow_network_reads: bool,
     ) -> Vec<EngineDirEntry> {
-        #[cfg(not(windows))]
-        let _ = allow_network_reads;
         match self.session.session_type() {
             SessionType::Local => {
-                // The host cannot resolve an `IO_REPARSE_TAG_LX_SYMLINK` over `\\wsl$`
-                // (APP-3993): it can't classify a symlink-to-directory correctly, and it can't
-                // traverse *through* a symlinked directory to list its contents at all. For
-                // completions, a WSL session asks the guest for the listing directly, following
-                // symlinks (`-L`) so both problems are avoided at the source, rather than patching
-                // up a host listing afterwards. A slow or failing guest falls back to the plain
-                // host listing below rather than emptying the completion list.
-                #[cfg(windows)]
-                if allow_network_reads
-                    && self.session.is_wsl()
-                    && let Some(entries) = wsl_guest_listing::list_entries(self, directory).await
-                {
-                    return entries;
-                }
-
                 let dir = match self.session.maybe_convert_to_native_path(directory) {
                     Ok(dir) => dir,
                     Err(err) => {
@@ -195,7 +175,7 @@ impl PathCompletionContext for SessionContext {
         }
 
         let result = self
-            .list_directory_entries_internal(&directory.to_path(), true)
+            .list_directory_entries_internal(&directory.to_path())
             .await;
 
         let result = Arc::new(result);

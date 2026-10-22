@@ -251,20 +251,6 @@ pub fn init(app: &mut AppContext) {
             CodeEditorViewAction::Paste,
             text_entry.clone(),
         ),
-        #[cfg(windows)]
-        FixedBinding::custom(
-            CustomAction::WindowsPaste,
-            CodeEditorViewAction::Paste,
-            "Paste",
-            text_entry.clone(),
-        ),
-        #[cfg(windows)]
-        FixedBinding::custom(
-            CustomAction::WindowsCopy,
-            CodeEditorViewAction::WindowsCtrlC,
-            "Copy",
-            text_entry.clone(),
-        ),
         FixedBinding::custom(
             CustomAction::Cut,
             CodeEditorViewAction::Cut,
@@ -703,8 +689,6 @@ pub enum CodeEditorViewAction {
     Paste,
     Cut,
     Copy,
-    #[cfg(windows)]
-    WindowsCtrlC,
     Undo,
     Redo,
     Tab,
@@ -761,8 +745,6 @@ impl CodeEditorViewAction {
             | Self::VimShiftEnter
             | Self::VimEscape => false,
 
-            #[cfg(windows)]
-            Self::WindowsCtrlC => true,
             Self::ScrollVertical(_)
             | Self::ScrollHorizontal(_)
             | Self::ScrollHalfPageDown
@@ -1011,10 +993,6 @@ impl TypedActionView for CodeEditorView {
                     ctx.emit(CodeEditorEvent::CopiedEmptyText);
                 }
             }
-            #[cfg(windows)]
-            WindowsCtrlC => self.model.update(ctx, |model, ctx| {
-                model.handle_windows_ctrl_c(ctx);
-            }),
             Undo => self.model.update(ctx, |model, ctx| {
                 model.undo(ctx);
             }),

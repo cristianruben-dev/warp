@@ -423,7 +423,7 @@ impl DeclarationsWriterHandle {
 
     /// Test-facing constructor that bypasses env-var-dependent path resolution and uses
     /// `tokio::spawn` directly so tests can run without standing up a `Background`.
-    #[cfg(all(test, not(windows)))]
+    #[cfg(test)]
     pub(super) fn new_at_path(
         declarations_path: PathBuf,
         working_dir: PathBuf,
@@ -1915,8 +1915,6 @@ where
     Ok(output.stdout)
 }
 
-// Snapshot upload is cloud-agent-only and only ever runs inside a Linux Docker container, so
-// skip the tests on Windows rather than teach every fixture to emit POSIX paths.
-#[cfg(all(test, not(windows)))]
+#[cfg(test)]
 #[path = "snapshot_tests.rs"]
 mod tests;

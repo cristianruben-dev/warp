@@ -11,16 +11,12 @@ use anyhow::Result;
 use cfg_aliases::cfg_aliases;
 use sha2::Digest;
 use walkdir::WalkDir;
-use warp_util::assets::{
-    ASSETS_DIR, ASYNC_ASSETS_DIR, CONPTY_DLL_FILE, DXCOMPILER_DLL_FILE, DXIL_DLL_FILE,
-    OPEN_CONSOLE_EXE_FILE, REMOTE_ASSETS_DIR, WINDOWS_ASSETS_DIR,
-};
+use warp_util::assets::{ASSETS_DIR, ASYNC_ASSETS_DIR, REMOTE_ASSETS_DIR};
 use warp_util::path::app_target_dir;
 
 fn main() -> Result<()> {
     cfg_aliases! {
-        linux_or_windows: { any(target_os = "linux", windows) },
-        enable_crash_recovery: { linux_or_windows },
+        enable_crash_recovery: { target_os = "linux" },
     }
 
     println!("cargo:rerun-if-changed=build.rs");
@@ -30,7 +26,7 @@ fn main() -> Result<()> {
     let target_os = env::var("CARGO_CFG_TARGET_OS")?;
     let target_family = env::var("CARGO_CFG_TARGET_FAMILY")?;
 
-    add_features(&target_family, &target_os);
+    add_features(&target_family);
 
     if target_os == "macos" && target_family != "wasm" {
         println!("cargo:rustc-link-lib=framework=MetalKit");
@@ -111,33 +107,6 @@ fn main() -> Result<()> {
                 eprintln!("Expected INFO_PLIST_PATH to be set")
             }
         }
-    }
-
-    if target_os == "windows" {
-        // These values change copied assets and embedded version metadata without changing sources.
-        println!("cargo:rerun-if-env-changed=CARGO_FULL_PROFILE");
-        println!("cargo:rerun-if-env-changed=CARGO_BIN_NAME");
-        println!("cargo:rerun-if-env-changed=GIT_RELEASE_TAG");
-        println!("cargo:rerun-if-env-changed=WARP_APP_NAME");
-        // Retrieve the Cargo profile name so that we can put a copy of ConPTY in
-        // the correct target subdirectory.
-        //
-        // `CARGO_FULL_PROFILE` is set by bundle scripts for custom profiles (e.g.
-        // release-lto). Fall back to Cargo's built-in `PROFILE` ("debug"/"release")
-        // for direct `cargo build` invocations. See also:
-        // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
-        //
-        // Ideally we could access `CARGO_TARGET_DIR` but this doesn't exist at build time.
-        // See https://github.com/rust-lang/cargo/issues/9661.
-        let cargo_full_profile = env::var("CARGO_FULL_PROFILE")
-            .or_else(|_| env::var("PROFILE"))
-            .unwrap_or_else(|_| String::from("debug"));
-        let target_dir =
-            app_target_dir(&cargo_full_profile).expect("Could not get app target directory");
-        copy_windows_assets(&target_dir);
-
-        #[cfg(windows)]
-        embed_resource_file(&target_dir);
     }
 
     if target_family == "wasm" {
@@ -228,15 +197,13 @@ fn get_build_profile_name() -> String {
         .into_owned()
 }
 
-fn add_features(target_family: &str, target_os: &str) {
+fn add_features(target_family: &str) {
     if target_family != "wasm" {
         println!("cargo:rustc-cfg=feature=\"local_fs\"");
         println!("cargo:rustc-cfg=feature=\"local_tty\"");
     }
 
-    if target_os != "windows" {
-        println!("cargo:rustc-cfg=feature=\"iterm_images\"");
-    }
+    println!("cargo:rustc-cfg=feature=\"iterm_images\"");
 
     if env::var("PROFILE").ok().is_some_and(|val| val == "debug") {
         println!("cargo:rustc-cfg=feature=\"agent_mode_debug\"");
@@ -407,134 +374,4 @@ fn copy_async_assets() {
             }
         }
     }
-}
-
-/// Copies the DLLs needed to run Warp on Windows.
-///
-/// They are organized as follows:
-/// - `conpty.dll`
-/// - `{platform}/OpenConsole.exe` (ex: `x64/OpenConsole.exe`)
-/// - `dxcompiler.dll` (ex: `dxcompiler.dll`)
-/// - `dxil.dll` (ex: `dxil.dll`)
-fn copy_windows_assets(target_dir: &Path) {
-    println!("cargo:rerun-if-changed=assets/windows");
-
-    let target_arch = match std::env::var("CARGO_CFG_TARGET_ARCH")
-        .expect("Target arhcitecture expected")
-        .as_str()
-    {
-        "x86_64" => "x64",
-        "aarch64" => "arm64",
-        _ => {
-            panic!("Unsupported architecture");
-        }
-    };
-
-    // This directory is architecture-specific.
-    let windows_asset_dir = Path::new(ASSETS_DIR)
-        .join(WINDOWS_ASSETS_DIR)
-        .join(target_arch);
-
-    // Copy conpty.dll into target directory.
-    fs::copy(
-        windows_asset_dir.join(CONPTY_DLL_FILE),
-        target_dir.join(CONPTY_DLL_FILE),
-    )
-    .unwrap_or_else(|err| {
-        panic!("Could not copy conpty.dll from {windows_asset_dir:?} to {target_dir:?}: {err:#}")
-    });
-
-    // Copy the DXC DLLs into the target directory.
-    for dxc_file in [DXCOMPILER_DLL_FILE, DXIL_DLL_FILE] {
-        fs::copy(
-            windows_asset_dir.join(dxc_file),
-            target_dir.join(dxc_file),
-        )
-        .unwrap_or_else(|err| {
-            panic!("Could not copy {dxc_file} from {windows_asset_dir:?} to {target_dir:?}: {err:#}")
-        });
-    }
-
-    // Copy OpenConsole.exe into {target_directory}/{arch}.
-    let old_open_console_exe = windows_asset_dir.join(OPEN_CONSOLE_EXE_FILE);
-    let new_platform_dir = target_dir.join(target_arch);
-    let new_open_console_exe = new_platform_dir.join(OPEN_CONSOLE_EXE_FILE);
-    fs::create_dir_all(&new_platform_dir).expect("Could not create new platform directory");
-    fs::copy(old_open_console_exe, new_open_console_exe)
-        .expect("Could not copy platform OpenConsole.exe");
-}
-
-#[cfg(windows)]
-fn embed_resource_file(target_dir: &Path) {
-    use std::io::Write;
-
-    let version = env::var("GIT_RELEASE_TAG").unwrap_or("v0".to_owned());
-    let app_name = env::var("WARP_APP_NAME").unwrap_or("Warp".to_owned());
-    let bin_name = env::var("CARGO_BIN_NAME").unwrap_or("local".to_owned());
-
-    let icon_path = Path::new("channels")
-        .join(bin_name)
-        .join("icon")
-        .join("no-padding")
-        .join("icon.ico");
-
-    fs::copy(icon_path, target_dir.join("icon.ico"))
-        .unwrap_or_else(|err| panic!("Could not copy icon: {err:#}"));
-
-    let resource_file_path = target_dir.join("resource.rc");
-    let mut rcfile = fs::File::create(&resource_file_path).unwrap();
-    write!(
-        rcfile,
-        r#"
-#pragma code_page(65001)
-#include <winres.h>
-#define IDI_ICON 0x101
-
-IDI_ICON ICON "icon.ico"
-VS_VERSION_INFO VERSIONINFO
-FILEVERSION     1,0,0,0
-PRODUCTVERSION  1,0,0,0
-FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
-FILEFLAGS       0
-FILEOS          VOS__WINDOWS32
-FILETYPE        VFT_APP
-FILESUBTYPE     VFT2_UNKNOWN
-BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "040904E4"
-        BEGIN
-            VALUE "CompanyName",      "Denver Technologies, Inc\0"
-            VALUE "FileDescription",  "{app_name}\0"
-            VALUE "FileVersion",      "{version}\0"
-            VALUE "LegalCopyright",   "© 2025, Denver Technologies, Inc\0"
-            VALUE "InternalName",     "\0"
-            VALUE "OriginalFilename", "\0"
-            VALUE "ProductName",      "Warp\0"
-            VALUE "ProductVersion",   "{version}\0"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x409, 1252
-    END
-END
-"#,
-    )
-    .unwrap();
-    drop(rcfile);
-
-    // Obtain MSVC environment so that the rc compiler can find the right headers.
-    // https://github.com/nabijaczleweli/rust-embed-resource/issues/11#issuecomment-603655972
-    let target = env::var("TARGET").unwrap();
-    if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
-        for (key, value) in tool.env() {
-            unsafe {
-                env::set_var(key, value);
-            }
-        }
-    }
-    embed_resource::compile(resource_file_path, embed_resource::NONE)
-        .manifest_required()
-        .unwrap_or_else(|err| panic!("Unable to embed resource file: {err:#}"));
 }

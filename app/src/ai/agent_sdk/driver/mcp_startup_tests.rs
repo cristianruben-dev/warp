@@ -1183,17 +1183,10 @@ fn install_profile_mcp_server(app: &mut App, json: &str) -> Uuid {
 }
 
 fn runnable_mcp_server_json(name: &str) -> String {
-    let server = if cfg!(windows) {
-        serde_json::json!({
-            "command": "powershell.exe",
-            "args": ["-NoProfile", "-Command", "Start-Sleep -Seconds 5"]
-        })
-    } else {
-        serde_json::json!({
-            "command": "sh",
-            "args": ["-c", "sleep 5"]
-        })
-    };
+    let server = serde_json::json!({
+        "command": "sh",
+        "args": ["-c", "sleep 5"]
+    });
     let mut servers = serde_json::Map::new();
     servers.insert(name.to_string(), server);
     serde_json::Value::Object(servers).to_string()

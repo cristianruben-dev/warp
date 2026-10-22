@@ -257,13 +257,6 @@ pub fn init(ctx: &mut AppContext) {
             EditorAction::Paste,
             id!("EditorView") & !id!("IMEOpen"),
         ),
-        #[cfg(windows)]
-        FixedBinding::custom(
-            CustomAction::WindowsPaste,
-            EditorAction::Paste,
-            "Paste",
-            id!("EditorView") & !id!("IMEOpen"),
-        ),
         FixedBinding::new(
             "ctrl-y",
             EditorAction::Yank,
@@ -4391,13 +4384,6 @@ impl EditorView {
         #[cfg(feature = "voice_input")]
         {
             self.stop_voice_input(true, ctx);
-        }
-
-        #[cfg(windows)]
-        // On Windows, if there is selected text, users expect ctrl-c to copy.
-        if !self.selected_text(ctx).is_empty() {
-            self.copy(ctx);
-            return;
         }
 
         if !self.can_edit(ctx) {

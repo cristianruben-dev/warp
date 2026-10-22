@@ -267,12 +267,12 @@ impl SystemInfo {
     /// `KeFlushProcessWriteBuffers` inter-processor interrupt across every logical core. Across the
     /// whole process table that can pin all cores at `DISPATCH_LEVEL` long enough to trip the DPC
     /// watchdog and bugcheck high-core-count machines.
-    #[cfg_attr(not(windows), allow(dead_code))]
+    #[allow(dead_code)]
     fn all_processes_refresh_kind() -> sysinfo::ProcessRefreshKind {
         sysinfo::ProcessRefreshKind::nothing()
     }
 
-    #[cfg_attr(not(windows), allow(dead_code))]
+    #[allow(dead_code)]
     pub fn refresh_all_processes(&mut self) {
         self.system.refresh_processes_specifics(
             ProcessesToUpdate::All,
@@ -281,7 +281,7 @@ impl SystemInfo {
         );
     }
 
-    #[cfg_attr(not(windows), allow(dead_code))]
+    #[allow(dead_code)]
     pub fn processes_by_name<'a>(
         &'a self,
         name: &'a str,

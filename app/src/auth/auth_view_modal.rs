@@ -49,12 +49,12 @@ pub fn init(app: &mut AppContext) {
         ),
     ]);
 
-    // For linux and Windows, default paste binding is ctrl+shift+v for PTY reasons.
+    // For linux, default paste binding is ctrl+shift+v for PTY reasons.
     // This can be confusing for users in some cases (and we might want
     // to solve it in a more general way later). In the meantime, we
     // add a basic ctrl+v binding for the auth view, since there is no
     // terminal to interact with yet.
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     app.register_fixed_bindings([FixedBinding::new(
         "cmdorctrl-v",
         AuthViewAction::PasteAuthUrl,

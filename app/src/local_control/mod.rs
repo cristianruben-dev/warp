@@ -155,10 +155,6 @@ impl LocalControlServer {
             self.stop(ctx);
             return Ok(());
         }
-        if !local_control_publication_supported() {
-            self.stop(ctx);
-            return Ok(());
-        }
         if !crate::settings::LocalControlSettings::as_ref(ctx).is_enabled() {
             self.stop(ctx);
             return Ok(());
@@ -189,12 +185,6 @@ impl LocalControlServer {
             ));
         }
         ensure_feature_enabled()?;
-        if !local_control_publication_supported() {
-            return Err(ControlError::new(
-                ErrorCode::LocalControlDisabled,
-                "local control is disabled until this platform enforces discovery-record ACLs",
-            ));
-        }
         if !crate::settings::LocalControlSettings::as_ref(ctx).is_enabled() {
             return Ok(());
         }
@@ -639,10 +629,6 @@ fn lookup_credential(
     grant.verify_for_action(instance_id, grant.action)?;
     Ok(grant)
 }
-fn local_control_publication_supported() -> bool {
-    cfg!(not(target_os = "windows"))
-}
-
 /// Performs browser-origin hardening for local-control endpoints.
 ///
 /// These checks intentionally reject browser-style `Origin` requests and stale

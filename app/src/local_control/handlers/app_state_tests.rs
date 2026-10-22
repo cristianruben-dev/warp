@@ -52,11 +52,7 @@ fn file_open_resolves_relative_paths_against_the_session_working_directory() {
         working_directory.join("missing.md")
     );
 
-    let absolute = PathBuf::from(if cfg!(windows) {
-        r"C:\tmp\absolute.md"
-    } else {
-        "/tmp/absolute.md"
-    });
+    let absolute = PathBuf::from("/tmp/absolute.md");
     assert_eq!(
         resolve_against_working_directory(&absolute, &working_directory),
         absolute

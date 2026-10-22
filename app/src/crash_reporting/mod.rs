@@ -1,6 +1,6 @@
 #[cfg(all(target_os = "macos", feature = "cocoa_sentry"))]
 mod mac;
-#[cfg(linux_or_windows)]
+#[cfg(target_os = "linux")]
 mod sentry_minidump;
 
 #[cfg(target_os = "linux")]
@@ -15,7 +15,7 @@ use lazy_static::lazy_static;
 use parking_lot::{Mutex, RwLock};
 use regex::Regex;
 use sentry::{ClientInitGuard, IntoDsn, SessionMode};
-#[cfg(linux_or_windows)]
+#[cfg(target_os = "linux")]
 pub use sentry_minidump::run_server as run_minidump_server;
 use warp_core::channel::Channel;
 use warp_server_auth::anonymous_id::get_or_create_anonymous_id;
@@ -66,7 +66,7 @@ fn set_tag_internal(key: Cow<'_, str>, value: Cow<'_, str>) {
         return;
     }
 
-    #[cfg(linux_or_windows)]
+    #[cfg(target_os = "linux")]
     sentry_minidump::set_tag(key.clone().into_owned(), value.clone().into_owned());
 
     #[cfg(all(target_os = "macos", feature = "cocoa_sentry"))]
@@ -92,7 +92,7 @@ pub fn set_antivirus_info(antivirus_info: &AntivirusInfo) {
 
 /// Sets the current application lifecycle stage, for use in logging as a Sentry tag.
 fn set_lifecycle_stage(stage: ApplicationStage) {
-    #[cfg(linux_or_windows)]
+    #[cfg(target_os = "linux")]
     sentry_minidump::set_tags_from(&stage);
 
     *APPLICATION_LIFECYCLE_STAGE.write() = stage;
@@ -265,9 +265,7 @@ fn get_environment() -> Cow<'static, str> {
         } else if #[cfg(target_os = "linux")] {
             let operating_system = "linux";
         }
-        else if #[cfg(target_os = "windows")] {
-            let operating_system = "windows";
-        } else {
+        else {
            let operating_system = "";
         }
     };
@@ -301,7 +299,7 @@ fn init_sentry(user_id: Option<UserUid>, email: Option<String>, ctx: &mut AppCon
     log::info!("Initializing crash reporting {environment:?} with tag {key:?}...");
 
     fn before_breadcrumb(crumb: sentry::Breadcrumb) -> Option<sentry::Breadcrumb> {
-        #[cfg(linux_or_windows)]
+        #[cfg(target_os = "linux")]
         sentry_minidump::forward_breadcrumb(crumb.clone());
         #[cfg(all(target_os = "macos", feature = "cocoa_sentry"))]
         mac::forward_breadcrumb(&crumb);
@@ -421,7 +419,7 @@ pub fn uninit_sentry() {
     if matches!(client_guard, RustSentryClientGuard::Initialized { .. }) {
         log::info!("Uninitializing crash reporting...");
 
-        #[cfg(linux_or_windows)]
+        #[cfg(target_os = "linux")]
         sentry_minidump::uninit();
         #[cfg(target_os = "macos")]
         if FeatureFlag::CocoaSentry.is_enabled() {
@@ -452,7 +450,7 @@ pub fn uninit_cocoa_sentry() {
 }
 
 pub fn crash() {
-    #[cfg(linux_or_windows)]
+    #[cfg(target_os = "linux")]
     sentry_minidump::crash();
     #[cfg(all(target_os = "macos", feature = "cocoa_sentry"))]
     mac::crash();
@@ -490,7 +488,7 @@ fn set_optional_user_information(
         }));
     });
 
-    #[cfg(linux_or_windows)]
+    #[cfg(target_os = "linux")]
     sentry_minidump::set_user_id(user_id.as_str());
     #[cfg(all(target_os = "macos", feature = "cocoa_sentry"))]
     mac::set_user_id(user_id.as_str());

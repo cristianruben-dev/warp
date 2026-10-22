@@ -88,19 +88,14 @@ pub(crate) fn ensure_workload_token_available() -> Result<(), TaskGitCredentials
 }
 
 fn home_dir() -> Result<PathBuf> {
-    let home = if cfg!(windows) {
-        git_home_dir(|key| std::env::var_os(key))
-    } else {
-        None
-    };
-    home.or_else(dirs::home_dir)
-        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))
+    dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))
 }
 
 /// Resolves `~` the way git does on Windows: from the environment, not from the profile of the
 /// account the process runs as. The credential files must land where git's `store` helper reads
 /// them, and `dirs::home_dir` disagrees with git when a process running as SYSTEM carries another
 /// user's `USERPROFILE`.
+#[cfg(test)]
 fn git_home_dir(get_env: impl Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
     let non_empty = |key: &str| get_env(key).filter(|value| !value.is_empty());
     if let Some(home) = non_empty("HOME") {
@@ -423,7 +418,7 @@ fn write_git_credentials_file(credentials: &[GitCredential]) -> Result<()> {
 /// The directory `gh` reads its config from, in `gh`'s own precedence order. On Windows `gh`
 /// ignores `~/.config/gh` whenever `APPDATA` is set.
 fn gh_config_dir(home: &Path) -> PathBuf {
-    resolve_gh_config_dir(home, cfg!(windows), |key| std::env::var_os(key))
+    resolve_gh_config_dir(home, false, |key| std::env::var_os(key))
 }
 
 fn resolve_gh_config_dir(

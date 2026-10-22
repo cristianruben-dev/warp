@@ -363,8 +363,6 @@ use crate::settings_view::keybindings::{KeybindingChangedEvent, KeybindingChange
 use crate::settings_view::mcp_servers_page::MCPServersSettingsPage;
 use crate::settings_view::pane_manager::SettingsPaneManager;
 use crate::settings_view::{SettingsSection, SettingsView, SettingsViewEvent, flags};
-#[cfg(all(target_os = "windows", feature = "local_tty"))]
-use crate::shell_indicator::ShellIndicatorType;
 use crate::tab::{
     COMPACT_TAB_WIDTH_THRESHOLD, ColorPickerTarget, MOVE_TO_GROUP_LABEL, NewSessionMenuItem,
     PaneNameMenuTarget, SelectedTabColor, TAB_BAR_BORDER_HEIGHT, TAB_INDICATOR_HEIGHT,
@@ -387,8 +385,6 @@ use crate::tab_configs::{
 };
 use crate::terminal::alt_screen_reporting::AltScreenReporting;
 use crate::terminal::available_shells::AvailableShell;
-#[cfg(target_os = "windows")]
-use crate::terminal::available_shells::AvailableShells;
 use crate::terminal::block_list_viewport::InputMode;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::{PluginModalKind, plugin_manager_for};
@@ -6983,60 +6979,17 @@ impl Workspace {
             menu_items.push(agent_item.into_item());
         }
 
-        // 2. Terminal (+ individual shells on Windows)
+        // 2. Terminal
         {
-            // On Windows, list the default terminal and each available shell as
-            // individual top-level items (no submenu) so each gets a sidecar.
-            #[cfg(target_os = "windows")]
-            {
-                let is_terminal_default = effective_default == DefaultSessionMode::Terminal;
-                let mut terminal_item = MenuItemFields::new("Terminal")
-                    .with_on_select_action(WorkspaceAction::AddTerminalTab {
-                        hide_homepage: false,
-                    })
-                    .with_icon(icons::Icon::LayoutAlt01);
-                if is_terminal_default {
-                    terminal_item = terminal_item.with_key_shortcut_label(shortcut_label.clone());
-                }
-                menu_items.push(terminal_item.into_item());
-
-                #[cfg(feature = "local_tty")]
-                if FeatureFlag::ShellSelector.is_enabled() {
-                    AvailableShells::handle(ctx).read(ctx, |model, _| {
-                        for shell in model.get_available_shells() {
-                            let shell_name = model.display_name_for_shell(shell);
-                            let icon = shell
-                                .get_valid_shell_path_and_type()
-                                .and_then(|shell_launch_data| {
-                                    ShellIndicatorType::try_from(&shell_launch_data).ok()
-                                })
-                                .map(|shell_indicator_type| shell_indicator_type.to_icon())
-                                .unwrap_or(icons::Icon::Terminal);
-                            let item = MenuItemFields::new(shell_name)
-                                .with_on_select_action(WorkspaceAction::AddTabWithShell {
-                                    shell: shell.clone(),
-                                    source: AddTabWithShellSource::ShellSelectorMenu,
-                                })
-                                .with_icon(icon);
-                            menu_items.push(item.into_item());
-                        }
-                    });
-                }
+            let mut terminal_item = MenuItemFields::new("Terminal")
+                .with_on_select_action(WorkspaceAction::AddTerminalTab {
+                    hide_homepage: false,
+                })
+                .with_icon(icons::Icon::LayoutAlt01);
+            if effective_default == DefaultSessionMode::Terminal {
+                terminal_item = terminal_item.with_key_shortcut_label(shortcut_label.clone());
             }
-
-            // On other platforms, Terminal is a regular item.
-            #[cfg(not(target_os = "windows"))]
-            {
-                let mut terminal_item = MenuItemFields::new("Terminal")
-                    .with_on_select_action(WorkspaceAction::AddTerminalTab {
-                        hide_homepage: false,
-                    })
-                    .with_icon(icons::Icon::LayoutAlt01);
-                if effective_default == DefaultSessionMode::Terminal {
-                    terminal_item = terminal_item.with_key_shortcut_label(shortcut_label.clone());
-                }
-                menu_items.push(terminal_item.into_item());
-            }
+            menu_items.push(terminal_item.into_item());
         }
 
         // 3. Cloud Agent (if flags enabled)
@@ -12479,10 +12432,7 @@ impl Workspace {
                 if cfg!(all(not(target_family = "wasm"), target_os = "macos")) {
                     AppContext::show_native_platform_modal(ctx, dialog);
                     return false;
-                } else if cfg!(all(
-                    not(target_family = "wasm"),
-                    any(target_os = "linux", windows)
-                )) {
+                } else if cfg!(all(not(target_family = "wasm"), target_os = "linux")) {
                     self.show_native_modal(dialog, ctx);
                     return false;
                 }
@@ -26965,7 +26915,7 @@ impl View for Workspace {
             let panels_row = self.render_panels(app, Shrinkable::new(1.0, content).finish(), true);
             outer_column.add_child(Shrinkable::new(1.0, panels_row).finish());
             Container::new(outer_column.finish())
-                .with_background(util::get_terminal_background_fill(self.window_id, app))
+                .with_background(util::get_terminal_background_fill(app))
                 .finish()
         } else {
             let mut outer_column = Flex::column();
@@ -26976,7 +26926,7 @@ impl View for Workspace {
             let panels_row = self.render_panels(app, Shrinkable::new(1.0, content).finish(), false);
             outer_column.add_child(Shrinkable::new(1.0, panels_row).finish());
             Container::new(outer_column.finish())
-                .with_background(util::get_terminal_background_fill(self.window_id, app))
+                .with_background(util::get_terminal_background_fill(app))
                 .finish()
         };
         let mut stack = Stack::new();
@@ -28037,9 +27987,7 @@ impl View for Workspace {
         let mut stack = Stack::new();
         let theme = appearance.theme();
         let window_settings = WindowSettings::as_ref(app);
-        let background_opacity = window_settings
-            .background_opacity
-            .effective_opacity(self.window_id, app);
+        let background_opacity = window_settings.background_opacity.effective_opacity();
 
         match theme.background_image() {
             Some(img) => {
@@ -28211,10 +28159,10 @@ impl View for Workspace {
             stack.finish()
         };
 
-        #[cfg_attr(not(any(windows, target_os = "linux")), allow(unused_mut))]
+        #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
         let mut event_handler = EventHandler::new(stack);
 
-        #[cfg(any(windows, target_os = "linux"))]
+        #[cfg(target_os = "linux")]
         {
             event_handler =
                 event_handler.on_scroll_wheel(move |ctx, _app, delta, modifiers_state| {

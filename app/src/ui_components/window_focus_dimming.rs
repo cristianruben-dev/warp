@@ -48,7 +48,7 @@ impl WindowFocusDimming {
         if !Self::is_window_focused(window_id, ctx) {
             let background_opacity = WindowSettings::as_ref(ctx)
                 .background_opacity
-                .effective_opacity(window_id, ctx);
+                .effective_opacity();
             let scaled_opacity =
                 (UNFOCUSED_WINDOW_DIMMING_OPACITY as f32 * background_opacity as f32 / 100.) as u8;
             let mut stack = Stack::new().with_child(element);

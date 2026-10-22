@@ -562,12 +562,6 @@ impl InitStepBlock {
             std::os::unix::fs::symlink(relative_path, &agents_md_path)?;
         }
 
-        #[cfg(windows)]
-        {
-            // On Windows, use junction for directories or symlink for files
-            std::os::windows::fs::symlink_file(relative_path, &agents_md_path)?;
-        }
-
         Ok(agents_md_path)
     }
 

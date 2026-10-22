@@ -208,9 +208,7 @@ fn test_find_by_command_name_skips_system_default() {
 #[test]
 fn test_find_by_command_name_matches_msys2_shell() {
     // Construct an MSYS2 shell directly so the `Config::MSYS2` arm of
-    // `find_by_command_name` is exercised from any platform — its
-    // `AvailableShell::new_msys2` constructor is gated to Windows, but the
-    // match arm is platform-independent.
+    // `find_by_command_name` is exercised from any platform.
     let path = PathBuf::from("/tmp/msys64/usr/bin/bash-msys2");
     let msys2_shell = AvailableShell {
         id: Some(format!("msys2:{}", path.display())),

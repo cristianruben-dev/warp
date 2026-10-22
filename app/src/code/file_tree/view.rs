@@ -2393,8 +2393,6 @@ impl FileTreeView {
 
             let open_text = if cfg!(target_os = "macos") {
                 "Reveal in Finder"
-            } else if cfg!(target_os = "windows") {
-                "Reveal in Explorer"
             } else {
                 "Reveal in file manager"
             };

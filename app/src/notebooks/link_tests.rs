@@ -262,7 +262,6 @@ fn test_resolve_valid_url() {
     });
 }
 
-#[cfg_attr(windows, ignore = "TODO(CORE-3626)")]
 #[test]
 fn test_resolve_file_url() {
     App::test((), |mut app| async move {

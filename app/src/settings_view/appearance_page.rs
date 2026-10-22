@@ -3290,38 +3290,6 @@ impl SettingsWidget for WindowOpacityWidget {
         app: &AppContext,
     ) -> Box<dyn Element> {
         let window_settings = WindowSettings::as_ref(app);
-        if !window_settings
-            .background_opacity
-            .is_configurable(view.window_id, app)
-        {
-            return Flex::column()
-                .with_child(
-                    Container::new(render_body_item_label::<AppearancePageAction>(
-                        "Window Opacity:".to_owned(),
-                        None,
-                        None,
-                        LocalOnlyIconState::Hidden,
-                        ToggleState::Disabled,
-                        appearance,
-                    ))
-                    .finish(),
-                )
-                .with_child(
-                    Container::new(
-                        FormattedTextElement::from_str(
-                            "Transparency is not supported with your graphics drivers.",
-                            appearance.ui_font_family(),
-                            appearance.ui_font_size(),
-                        )
-                        .with_color(appearance.theme().disabled_ui_text_color().into_solid())
-                        .finish(),
-                    )
-                    .with_margin_bottom(8.0)
-                    .finish(),
-                )
-                .finish();
-        }
-
         let opacity_value = *window_settings.background_opacity;
         let mut col = Flex::column().with_child(render_body_item::<AppearancePageAction>(
             format!("Window Opacity: {opacity_value}"),
