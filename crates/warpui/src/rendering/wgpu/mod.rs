@@ -6,7 +6,7 @@ mod texture_with_bind_group;
 use std::sync::{Arc, LazyLock, Mutex};
 
 pub use renderer::Renderer;
-pub use resources::{Resources, adapter_has_rendering_offset_bug};
+pub use resources::Resources;
 use wgpu::wgt::WgpuHasDisplayHandle;
 
 use crate::platform::GraphicsBackend;
@@ -41,7 +41,6 @@ pub fn init_wgpu_instance(display_handle: Box<dyn WgpuHasDisplayHandle>) {
 
     // A helper function to create a wgpu instance with the appropriate configuration.
     let create_instance = move || {
-        let dx12_shader_compiler = get_dx12_shader_compiler();
         Arc::new(wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu_backend_options(),
             backend_options: wgpu::BackendOptions {
@@ -51,7 +50,7 @@ pub fn init_wgpu_instance(display_handle: Box<dyn WgpuHasDisplayHandle>) {
                     } else {
                         wgpu::wgt::Dx12SwapchainKind::DxgiFromVisual
                     },
-                    shader_compiler: dx12_shader_compiler.unwrap_or(wgpu::Dx12Compiler::Fxc),
+                    shader_compiler: wgpu::Dx12Compiler::Fxc,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -206,22 +205,6 @@ pub async fn is_low_power_gpu_available() -> bool {
     // We return false here because we only support WebGL (not WebGPU) on the web and the former
     // does not allow configuration of a low or high power GPU.
     false
-}
-
-#[cfg(windows)]
-fn get_dx12_shader_compiler() -> Option<wgpu::Dx12Compiler> {
-    let dxc_path = crate::platform::windows::DXC_PATH.get()?;
-
-    dxc_path
-        .as_ref()
-        .map(|dxc_path| wgpu::Dx12Compiler::DynamicDxc {
-            dxc_path: dxc_path.dxc_path.clone(),
-        })
-}
-
-#[cfg(not(windows))]
-fn get_dx12_shader_compiler() -> Option<wgpu::Dx12Compiler> {
-    None
 }
 
 /// Converts a [`wgpu::Backend`] to a [`GraphicsBackend`].

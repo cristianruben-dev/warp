@@ -136,23 +136,7 @@ pub fn open_url_in_system(url: &str) -> bool {
         }
     }
 
-    #[cfg(windows)]
-    {
-        match open::that_detached(url) {
-            Ok(_) => true,
-            Err(e) => {
-                log::warn!("Unable to open url {e:?}");
-                false
-            }
-        }
-    }
-
-    #[cfg(not(any(
-        target_family = "wasm",
-        target_os = "linux",
-        target_os = "freebsd",
-        windows
-    )))]
+    #[cfg(not(any(target_family = "wasm", target_os = "linux", target_os = "freebsd")))]
     false
 }
 
@@ -253,13 +237,6 @@ impl AppDelegate {
                         report_error!(anyhow::Error::new(err).context("Error creating Linux clipboard"));
                     }
                 }
-            } else if #[cfg(target_os = "windows")] {
-                match super::windows::WindowsClipboard::new() {
-                    Ok(clipboard) => self.clipboard = Box::new(clipboard),
-                    Err(err) => {
-                        report_error!(anyhow::Error::new(err).context("Error creating Windows clipboard"));
-                    }
-                }
             }
         }
     }
@@ -290,16 +267,6 @@ impl platform::Delegate for AppDelegate {
             }
             Err(err) => {
                 log::info!("Unable to fetch Linux system color scheme: {err:#}");
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        match super::windows::get_system_theme() {
-            Ok(system_theme) => {
-                return system_theme;
-            }
-            Err(err) => {
-                log::warn!("Unable to fetch Windows system color scheme: {err:#?}");
             }
         }
 
@@ -341,10 +308,6 @@ impl platform::Delegate for AppDelegate {
                             "noopener,noreferrer",
                         );
                     }
-            } else if #[cfg(windows)] {
-                if let Err(e) = open::that_detached(path) {
-                    log::warn!("Unable to open path {e:?}");
-                }
             }
         }
     }

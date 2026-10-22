@@ -498,7 +498,7 @@ impl CodeDiffView {
             )
         });
 
-        #[cfg_attr(not(windows), allow(unused_variables))]
+        #[allow(unused_variables)]
         ctx.subscribe_to_view(&editor, |me, view, event, ctx| match event {
             CodeEditorEvent::Focused => ctx.emit(CodeDiffViewEvent::EditorFocused),
             CodeEditorEvent::SelectionChanged => {
@@ -511,10 +511,6 @@ impl CodeDiffView {
             }
             CodeEditorEvent::CopiedEmptyText => {
                 ctx.emit(CodeDiffViewEvent::CopiedEmptyText);
-            }
-            #[cfg(windows)]
-            CodeEditorEvent::WindowsCtrlC { copied_selection } if !copied_selection => {
-                me.reject(ctx);
             }
             _ => {}
         });

@@ -2,7 +2,7 @@ use settings::macros::define_settings_group;
 use settings::{RespectUserSyncSetting, Setting as _, SupportedPlatforms, SyncToCloud};
 use warp_errors::report_if_error;
 use warpui::platform::WindowBackdrop;
-use warpui::{AppContext, SingletonEntity, WindowId};
+use warpui::{AppContext, SingletonEntity};
 
 define_settings_group!(WindowSettings, settings: [
     background_blur_radius: BackgroundBlurRadius {
@@ -180,25 +180,8 @@ impl BackgroundOpacity {
     pub const MAX: u8 = 100;
 
     /// Returns the effective background opacity for the window.
-    ///
-    /// When native window decorations are enabled (e.g. as a GPU driver workaround) on Windows,
-    /// the native frame adds a white background that bleeds through any transparent areas, so we
-    /// force full opacity.
-    pub fn effective_opacity(&self, window_id: WindowId, app: &AppContext) -> u8 {
-        if self.is_configurable(window_id, app) {
-            **self
-        } else {
-            Self::MAX
-        }
-    }
-
-    pub fn is_configurable(&self, window_id: WindowId, app: &AppContext) -> bool {
-        let disable_transparency = app
-            .windows()
-            .platform_window(window_id)
-            .is_some_and(|w| w.uses_native_window_decorations())
-            && cfg!(windows);
-        !disable_transparency
+    pub fn effective_opacity(&self) -> u8 {
+        **self
     }
 
     fn validate(&self, new_value: u8) -> u8 {

@@ -65,17 +65,8 @@ impl Drop for EnvVarGuard {
 }
 
 fn write_fake_cli(bin_dir: &std::path::Path, name: &str) {
-    let executable_name = if cfg!(windows) {
-        format!("{name}.cmd")
-    } else {
-        name.to_string()
-    };
-    let executable_path = bin_dir.join(executable_name);
-    let script = if cfg!(windows) {
-        "@echo off\r\n"
-    } else {
-        "#!/bin/sh\n"
-    };
+    let executable_path = bin_dir.join(name);
+    let script = "#!/bin/sh\n";
 
     fs::write(&executable_path, script).unwrap();
 

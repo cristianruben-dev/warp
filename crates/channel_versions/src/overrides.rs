@@ -51,8 +51,6 @@ impl TargetOS {
             Some(TargetOS::MacOS)
         } else if cfg!(any(target_os = "linux", target_os = "freebsd")) {
             Some(TargetOS::Linux)
-        } else if cfg!(target_os = "windows") {
-            Some(TargetOS::Windows)
         } else {
             None
         }

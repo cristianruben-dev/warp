@@ -686,8 +686,7 @@ fn test_superseding_refresh_coalesces_without_overlapping_reads() {
     }
 
     fn repo_root() -> StandardizedPath {
-        let root = if cfg!(windows) { "C:/repo" } else { "/repo" };
-        StandardizedPath::try_new(root).unwrap()
+        StandardizedPath::try_new("/repo").unwrap()
     }
 
     fn path_in_repo(name: &str) -> LocalOrRemotePath {

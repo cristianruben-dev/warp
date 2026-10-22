@@ -4,7 +4,7 @@ use warp_core::telemetry::{EnablementState, TelemetryEvent, TelemetryEventDesc};
 
 #[derive(Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(EnumIter))]
-#[cfg_attr(not(windows), expect(dead_code))]
+#[expect(dead_code)]
 pub(super) enum AntivirusInfoTelemetryEvent {
     AntivirusDetected { name: String },
 }

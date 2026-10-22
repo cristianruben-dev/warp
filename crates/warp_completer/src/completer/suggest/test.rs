@@ -20,14 +20,6 @@ use crate::signatures::testing::{
     npm_signature, signature_with_empty_positional, test_signature,
 };
 
-#[cfg(windows)]
-mod windows_constants {
-    pub(super) const TEST_WORK_DIR: &str = r"C:\Users\";
-}
-
-#[cfg(windows)]
-use windows_constants::*;
-
 #[cfg(unix)]
 mod unix_constants {
     pub(super) const TEST_WORK_DIR: &str = "/home/";
@@ -306,10 +298,6 @@ pub fn test_completes_paths_with_space() {
     );
 }
 
-#[cfg_attr(
-    windows,
-    ignore = "CORE-3696: path sorting comparison function needs separators"
-)]
 #[test]
 pub fn test_completes_dotfiles() {
     let pwd = TypedPathBuf::from(TEST_WORK_DIR);
@@ -1642,10 +1630,6 @@ pub fn test_completions() {
 
     #[cfg(unix)]
     assert!(complete_at_end_of_line("cd /", &ctx).contains(&TEST_ROOT_DIR.to_owned()));
-
-    // TODO(CORE-3696): test Windows root directory separately
-    // #[cfg(windows)]
-    // assert!(complete_at_end_of_line("cd C:", &ctx).contains(&TEST_ROOT_DIR.to_owned()));
 
     let git_subcommands = vec!["add", "branch", "checkout", "clone"];
     assert_eq!(complete_at_end_of_line("git ", &ctx), git_subcommands);

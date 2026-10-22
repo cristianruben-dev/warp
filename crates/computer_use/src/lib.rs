@@ -1,6 +1,5 @@
 #[cfg_attr(macos, path = "mac/mod.rs")]
 #[cfg_attr(linux, path = "linux/mod.rs")]
-#[cfg_attr(windows, path = "windows/mod.rs")]
 #[cfg(not(noop))]
 mod imp;
 // Env-var-gated mock recorder for exercising the recording UI on macOS,
@@ -9,15 +8,15 @@ mod imp;
 mod mock;
 mod noop;
 mod overlay;
-#[cfg(any(macos, linux, windows))]
+#[cfg(any(macos, linux))]
 mod recording_metadata;
-#[cfg(any(macos, linux, windows))]
+#[cfg(any(macos, linux))]
 mod recording_paths;
-#[cfg(any(linux, windows))]
+#[cfg(linux)]
 mod recording_post_process;
-#[cfg(any(macos, linux, windows))]
+#[cfg(any(macos, linux))]
 mod screenshot_utils;
-#[cfg(any(macos, linux, windows))]
+#[cfg(any(macos, linux))]
 mod thumbnail;
 
 use std::borrow::Cow;
@@ -107,8 +106,7 @@ pub fn create_actor() -> Box<dyn Actor> {
 ///   - Under a click-to-focus window manager, the WM itself may react to an agent click by
 ///     focusing/raising the target for the user too. WM-less servers (e.g. Xvfb in cloud
 ///     environments) have no such side effect.
-/// - Linux Wayland and Windows: unsupported (this returns false); only whole-screen control is
-///   available.
+/// - Linux Wayland: unsupported (this returns false); only whole-screen control is available.
 pub fn background_supported() -> bool {
     if cfg!(feature = "test-util") {
         noop::background_supported()
@@ -274,9 +272,8 @@ pub trait Actor: Send + Sync + 'static {
 
 /// Returns a recorder that can capture a video of the computer-use display.
 ///
-/// Real recorders are available on Linux (X11), macOS (avfoundation), and
-/// Windows (gdigrab). Other platforms and any `test-util` build get a no-op
-/// recorder. On macOS, setting `WARP_MOCK_RECORDER` opts into a mock recorder
+/// Real recorders are available on Linux (X11) and macOS (avfoundation). Other
+/// platforms and any `test-util` build get a no-op recorder. On macOS, setting `WARP_MOCK_RECORDER` opts into a mock recorder
 /// for UI testing (see `mock`).
 pub fn create_recorder() -> Box<dyn Recorder> {
     #[cfg(macos)]
@@ -291,8 +288,8 @@ pub fn create_recorder() -> Box<dyn Recorder> {
 }
 
 /// Applies platform-specific post-processing and returns the path to upload.
-/// Linux and Windows trim inactive gaps and burn action overlays; other
-/// platforms return `input` unchanged.
+/// Linux trims inactive gaps and burns action overlays; other platforms return
+/// `input` unchanged.
 pub async fn post_process_recording(
     input: &Path,
     entries: &[ActionLogEntry],
@@ -300,7 +297,7 @@ pub async fn post_process_recording(
     source_duration: Duration,
     frame_rate: u32,
 ) -> Result<PathBuf, RecordingError> {
-    #[cfg(all(any(linux, windows), not(noop)))]
+    #[cfg(all(linux, not(noop)))]
     {
         recording_post_process::post_process_recording(
             input,
@@ -311,7 +308,7 @@ pub async fn post_process_recording(
         )
         .await
     }
-    #[cfg(not(all(any(linux, windows), not(noop))))]
+    #[cfg(not(all(linux, not(noop))))]
     {
         let _ = (entries, dimensions, source_duration, frame_rate);
         Ok(input.to_path_buf())
@@ -319,11 +316,11 @@ pub async fn post_process_recording(
 }
 /// Reads the duration encoded in a finalized recording's media timeline.
 pub async fn finalized_video_duration(input: &Path) -> Result<Duration, RecordingError> {
-    #[cfg(any(macos, linux, windows))]
+    #[cfg(any(macos, linux))]
     {
         recording_metadata::video_duration(input).await
     }
-    #[cfg(not(any(macos, linux, windows)))]
+    #[cfg(not(any(macos, linux)))]
     {
         let _ = input;
         Err(RecordingError::Finalize {
@@ -342,13 +339,13 @@ pub async fn finalized_video_duration(input: &Path) -> Result<Duration, Recordin
 ///
 /// Best-effort by design: the caller treats any error as "no thumbnail" and
 /// falls back to a plain link, never blocking the video upload or PR creation.
-/// Recording and ffmpeg are available on macOS, Linux, and Windows; every other
-/// platform reports thumbnail generation as unsupported.
+/// Recording and ffmpeg are available on macOS and Linux; every other platform reports
+/// thumbnail generation as unsupported.
 pub async fn generate_video_thumbnail(
     video: &Path,
     artifact_uid: &str,
 ) -> Result<PathBuf, RecordingError> {
-    #[cfg(any(macos, linux, windows))]
+    #[cfg(any(macos, linux))]
     {
         thumbnail::generate_video_thumbnail(
             video,
@@ -357,7 +354,7 @@ pub async fn generate_video_thumbnail(
         )
         .await
     }
-    #[cfg(not(any(macos, linux, windows)))]
+    #[cfg(not(any(macos, linux)))]
     {
         let _ = (video, artifact_uid);
         Err(RecordingError::Finalize {
@@ -430,15 +427,15 @@ pub struct RecordingHandle {
     // The live capture process plus the fields used to finalize it are only
     // populated by the real platform recorders; the no-op recorders never
     // construct a handle.
-    #[cfg(any(linux, macos, windows))]
+    #[cfg(any(linux, macos))]
     path: PathBuf,
-    #[cfg(any(linux, macos, windows))]
+    #[cfg(any(linux, macos))]
     started_at: instant::Instant,
-    #[cfg(any(linux, macos, windows))]
+    #[cfg(any(linux, macos))]
     process: Option<tokio::process::Child>,
     // The handle owns and deletes partial output until `Recorder::stop`
     // validates the file and transfers its path to `RecordingOutput`.
-    #[cfg(any(linux, macos, windows))]
+    #[cfg(any(linux, macos))]
     cleanup_on_drop: bool,
 }
 
@@ -468,7 +465,7 @@ impl RecordingHandle {
             return Some(kind);
         }
 
-        #[cfg(any(linux, macos, windows))]
+        #[cfg(any(linux, macos))]
         if let Some(process) = self.process.as_mut()
             && let Ok(Some(status)) = process.try_wait()
         {
@@ -495,32 +492,23 @@ impl RecordingHandle {
             height,
             capture_origin: Vector2I::new(0, 0),
             exit_state: exit_state.clone(),
-            #[cfg(any(linux, macos, windows))]
+            #[cfg(any(linux, macos))]
             path: PathBuf::new(),
-            #[cfg(any(linux, macos, windows))]
+            #[cfg(any(linux, macos))]
             started_at: instant::Instant::now(),
-            #[cfg(any(linux, macos, windows))]
+            #[cfg(any(linux, macos))]
             process: None,
-            #[cfg(any(linux, macos, windows))]
+            #[cfg(any(linux, macos))]
             cleanup_on_drop: false,
         };
         (handle, exit_state)
     }
 }
 
-#[cfg(any(linux, macos, windows))]
+#[cfg(any(linux, macos))]
 impl Drop for RecordingHandle {
     fn drop(&mut self) {
         if self.cleanup_on_drop {
-            // Windows can't delete a file ffmpeg still has open, and `Drop` can't `.await` a
-            // process reap, so cleanup runs on a background thread there instead of blocking
-            // (or leaking the file) here; see `windows::recording::spawn_abandoned_cleanup`.
-            // POSIX allows unlinking a still-open file, so mac/Linux clean up synchronously.
-            #[cfg(windows)]
-            if let Some(process) = self.process.take() {
-                imp::spawn_abandoned_cleanup(process, self.path.clone());
-                return;
-            }
             let _ = std::fs::remove_file(&self.path);
             let _ = std::fs::remove_file(self.path.with_extension("log"));
         }
@@ -553,13 +541,10 @@ mod recording_tests;
 /// A key that can be pressed or released.
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Key {
-    /// A platform-specific keycode. On macOS and Windows, this is a virtual keycode.
+    /// A platform-specific keycode. On macOS, this is a virtual keycode.
     /// On Linux, this is an X11 keysym.
     Keycode(i32),
-    /// A character key (e.g., 'a', '+'). On Windows, `Key::Char` only supports characters in
-    /// the Basic Multilingual Plane (BMP, `U+0000`–`U+FFFF`). Supplementary-plane characters
-    /// (emoji, some CJK extension blocks, etc.) will return an error; use `TypeText` instead for
-    /// those.
+    /// A character key (e.g., 'a', '+').
     Char(char),
 }
 
@@ -704,7 +689,7 @@ pub struct Options {
 }
 
 /// Collects resolved pointer events during a recording so the finalize pass can burn in
-/// click/drag annotations. The Linux X11 and Windows actors populate it.
+/// click/drag annotations. The Linux X11 actor populates it.
 pub struct PointerSink {
     /// Capture start instant; event offsets are measured from here.
     pub started_at: instant::Instant,

@@ -7,8 +7,6 @@ mod text_layout;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod linux;
 
-#[cfg(target_os = "windows")]
-mod windows;
 use std::any::Any;
 use std::collections::HashMap;
 use std::ops::{DerefMut, Range};
@@ -33,8 +31,6 @@ use resvg::usvg::fontdb;
 use resvg::usvg::fontdb::Query;
 use vec1::Vec1;
 use warpui_core::fonts::{Style, Weight};
-#[cfg(target_os = "windows")]
-use windows::loader;
 
 use self::font_handle::{FontData, FontHandle};
 use self::str_index_map::StrIndexMap;
@@ -303,7 +299,7 @@ mod loader {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "windows")))]
+#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
 mod loader {
     use super::*;
     #[cfg(not(target_family = "wasm"))]
@@ -347,7 +343,7 @@ fn load_font_family_from_bytes(name: &str, font_bytes: Vec<Vec<u8>>) -> Result<F
 }
 
 /// Enum indicating whether font validation should enforce that the font supports the english language.
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[derive(Copy, Clone)]
 enum ValidateFontSupportsEn {
     Yes,
@@ -397,7 +393,6 @@ pub struct TextLayoutSystem {
     /// fonts while doing text layout. This means we need cache the fonts we loaded so we can read
     /// it out at raster time and load any necessary fonts.
     loaded_font_ids_since_last_raster: RwLock<Vec<FontId>>,
-    #[cfg(not(target_os = "windows"))]
     fallback_fonts: DashMap<FontId, Vec<FontId>>,
 }
 
@@ -499,7 +494,6 @@ impl TextLayoutSystem {
             font_id_map: Default::default(),
             font_selections: Default::default(),
             loaded_fonts: Default::default(),
-            #[cfg(not(target_os = "windows"))]
             fallback_fonts: Default::default(),
             #[cfg(feature = "fontkit-rasterizer")]
             loaded_font_ids_since_last_raster: Default::default(),
@@ -849,12 +843,9 @@ impl TextLayoutSystem {
 
                 if let Some(font_id) = font_id {
                     self.font_selections.retain(|_, v| *v != font_id);
-                    #[cfg(not(target_os = "windows"))]
-                    {
-                        self.fallback_fonts.remove(&font_id);
-                        for mut entry in self.fallback_fonts.iter_mut() {
-                            entry.value_mut().retain(|id| *id != font_id);
-                        }
+                    self.fallback_fonts.remove(&font_id);
+                    for mut entry in self.fallback_fonts.iter_mut() {
+                        entry.value_mut().retain(|id| *id != font_id);
                     }
                     self.loaded_fonts.retain(|_, v| *v != font_id);
                     let mut families = self.families.write();
@@ -889,7 +880,6 @@ impl TextLayoutSystem {
 
     /// Loads all of the fallback fonts for the `font_id` with a given `family_name` and set of `properties`.
     /// Noops if fallback fonts for the font are already loaded.
-    #[cfg(not(target_os = "windows"))]
     fn load_fallback_fonts(&self, font_id: FontId, family_name: &str, properties: Properties) {
         if self.fallback_fonts.contains_key(&font_id) {
             return;
@@ -904,10 +894,6 @@ impl TextLayoutSystem {
             self.fallback_fonts.insert(font_id, fallback_fonts);
         }
     }
-
-    /// On Windows, this is a no-op. We retrieve fallback fonts dynamically as needed.
-    #[cfg(target_os = "windows")]
-    fn load_fallback_fonts(&self, _font_id: FontId, _family_name: &str, _properties: Properties) {}
 
     #[allow(clippy::too_many_arguments)]
     fn create_text_frame(
@@ -1521,21 +1507,10 @@ impl TextLayoutSystem {
         }
     }
 
-    #[cfg(not(target_os = "windows"))]
     fn fallback_fonts(&self, _ch: char, font_id: FontId) -> Vec<FontId> {
         self.fallback_fonts
             .get(&font_id)
             .map(|fallbacks| fallbacks.clone())
-            .unwrap_or_default()
-    }
-
-    #[cfg(target_os = "windows")]
-    fn fallback_fonts(&self, character: char, font_id: FontId) -> Vec<FontId> {
-        self.get_fallback_fonts_for_character(character, font_id)
-            .map_err(|err| {
-                log::warn!("Unable to fetch fallback fonts for character {character:?}: {err:?}");
-                err
-            })
             .unwrap_or_default()
     }
 

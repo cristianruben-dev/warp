@@ -689,11 +689,6 @@ impl<S> TerminalManager<S> {
         S: TerminalSurface,
         <S as Entity>::Event: PtyIntentEvent,
     {
-        // Windows would also need its child exit watcher to wait for an in-flight exit callback.
-        anyhow::ensure!(
-            !cfg!(windows),
-            "shell replacement is not supported on Windows"
-        );
         anyhow::ensure!(
             self.pending_shell_recovery.is_none(),
             "shell replacement is already pending"
@@ -902,8 +897,6 @@ impl<S> TerminalManager<S> {
                     replacement_starter,
                     env_vars,
                     model.clone(),
-                    #[cfg(windows)]
-                    self.event_loop_tx.clone(),
                     ctx,
                 )
             }) {
@@ -1110,8 +1103,6 @@ fn on_shell_determined<S: TerminalSurface>(
         model_events: model_events.clone(),
     });
     let model = manager.model();
-    #[cfg(windows)]
-    let event_loop_tx = manager.event_loop_tx.clone();
     let pty = match manager
         .enqueue_init_script(&shell_starter, generated_session_id)
         .context("Failed to write shell init script to the pty")
@@ -1121,8 +1112,6 @@ fn on_shell_determined<S: TerminalSurface>(
                 shell_starter,
                 env_vars,
                 model.clone(),
-                #[cfg(windows)]
-                event_loop_tx,
                 ctx,
             )
         }) {
@@ -1230,7 +1219,6 @@ impl<S> TerminalManager<S> {
         shell_starter: ShellStarter,
         env_vars: HashMap<OsString, OsString>,
         model: Arc<FairMutex<TerminalModel>>,
-        #[cfg(windows)] event_loop_tx: mio_channel::Sender<Message>,
         ctx: &mut AppContext,
     ) -> anyhow::Result<Pty> {
         let is_shell_debug_mode_enabled = *DebugSettings::as_ref(ctx)
@@ -1293,13 +1281,7 @@ impl<S> TerminalManager<S> {
         let hooks = AppPtySpawnHooks {
             is_crash_reporting_enabled,
         };
-        Pty::new(
-            options,
-            &hooks,
-            #[cfg(windows)]
-            event_loop_tx,
-            ctx,
-        )
+        Pty::new(options, &hooks, ctx)
     }
 
     /// Start's the PTY event loop, returning a sender for the event loop and the event loop's join handle.

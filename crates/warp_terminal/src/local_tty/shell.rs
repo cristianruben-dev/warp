@@ -9,11 +9,7 @@ use typed_path::UnixPathBuf;
 use warp_core::channel::{Channel, ChannelState};
 use warp_core::session_id::SessionId;
 use warp_errors::report_error;
-#[cfg(windows)]
-use warp_util::path::windows::{powershell_5_path, powershell_7_path, wsl_path};
-use warp_util::path::{
-    canonicalize_git_bash_path, is_msys2_path, resolve_executable, warp_shell_path,
-};
+use warp_util::path::{resolve_executable, warp_shell_path};
 
 use crate::bootstrap::{generate_session_id, init_shell_script_for_shell};
 use crate::local_tty::docker_sandbox::DockerSandboxShellStarter;
@@ -167,24 +163,6 @@ impl ShellStarter {
                     shell_type,
                 } => {
                     let session_id = generate_session_id();
-                    if cfg!(windows) {
-                        let executable_path = canonicalize_git_bash_path(executable_path.clone());
-                        if is_msys2_path(&executable_path) {
-                            return Some(
-                                ShellStarterSource::Override(ShellStarter::MSYS2(
-                                    DirectShellStarter {
-                                        args: msys2_arguments_for_session_spawning_command(
-                                            shell_type,
-                                        ),
-                                        shell_path: executable_path,
-                                        shell_type,
-                                        session_id,
-                                    },
-                                ))
-                                .into(),
-                            );
-                        }
-                    }
                     let args = arguments_for_session_spawning_command(
                         executable_path.to_string_lossy().as_ref(),
                         shell_type,
@@ -273,88 +251,65 @@ impl ShellStarter {
     }
 
     fn compute_fallback_shell() -> Option<ShellStarterSource> {
-        cfg_if::cfg_if! {
-            if #[cfg(unix)] {
-                let pw_shell_path = super::unix::resolve_current_user().map(|user| user.shell);
-                if pw_shell_path.is_none() {
-                    report_error!(
-                        "could not resolve the current user (getpwuid, getent, and /etc/passwd all failed)",
-                        extra: { "uid" => %nix::unistd::getuid().as_raw() }
-                    );
-                }
-                if let Some((resolved_pw_shell_path, shell_type)) =
-                    pw_shell_path.as_deref().and_then(supported_shell_path_and_type)
-                {
-                    let session_id = generate_session_id();
-                    let args = arguments_for_session_spawning_command(
-                        resolved_pw_shell_path.as_path().to_string_lossy().as_ref(),
-                        shell_type,
-                        session_id,
-                    );
-                    return Some(ShellStarterSource::UserDefault(DirectShellStarter {
-                        args,
-                        shell_path: resolved_pw_shell_path,
-                        shell_type,
-                        session_id,
-                    }));
-                }
-                let unsupported_shell = pw_shell_path;
-
-                let (resolved_default_shell_path, shell_type) = if let Some(shell_path_and_type) =
-                    supported_shell_path_and_type(ZSH_SHELL_PATH)
-                {
-                    shell_path_and_type
-                } else if let Some(shell_path_and_type) = supported_shell_path_and_type(BASH_SHELL_PATH) {
-                    shell_path_and_type
-                } else if let Some(shell_path_and_type) = supported_shell_path_and_type(FISH_SHELL_PATH) {
-                    shell_path_and_type
-                } else {
-                    log::warn!("Did not find valid binaries when attempting to load fallback shell (not bash, fish, or zsh).");
-                    return None;
-                };
-
-                let session_id = generate_session_id();
-                let args = arguments_for_session_spawning_command(
-                    resolved_default_shell_path.as_path().to_string_lossy().as_ref(),
-                    shell_type,
-                    session_id,
-                );
-                Some(ShellStarterSource::Fallback {
-                    unsupported_shell,
-                    starter: DirectShellStarter {
-                        args,
-                        shell_path: resolved_default_shell_path,
-                        shell_type,
-                        session_id,
-                    },
-                })
-            } else if #[cfg(target_os = "windows")] {
-                let (resolved_default_shell_path, shell_type) = if let Some(shell_path_and_type) = powershell_7_path().and_then(|path| parse_shell_type_from_path(path)) {
-                    shell_path_and_type
-                } else if let Some(shell_path_and_type) = powershell_5_path().and_then(|path| parse_shell_type_from_path(path)) {
-                    shell_path_and_type
-                } else if let Some(shell_path_and_type) = wsl_path().and_then(|path| parse_shell_type_from_path(path)) {
-                    shell_path_and_type
-                } else {
-                    // TODO(PLAT-807): Consider adding Command Prompt as a fallback shell.
-                    log::warn!("Did not find valid binaries when attempting to load fallback shell (not PowerShell or WSL).");
-                    return None;
-                };
-
-                let session_id = generate_session_id();
-                let args = arguments_for_session_spawning_command(
-                    resolved_default_shell_path.as_path().to_string_lossy().as_ref(),
-                    shell_type,
-                    session_id,
-                );
-                Some(ShellStarterSource::UserDefault(DirectShellStarter {
-                    args,
-                    shell_path: resolved_default_shell_path,
-                    shell_type,
-                    session_id,
-                }))
-            }
+        let pw_shell_path = super::unix::resolve_current_user().map(|user| user.shell);
+        if pw_shell_path.is_none() {
+            report_error!(
+                "could not resolve the current user (getpwuid, getent, and /etc/passwd all failed)",
+                extra: { "uid" => %nix::unistd::getuid().as_raw() }
+            );
         }
+        if let Some((resolved_pw_shell_path, shell_type)) = pw_shell_path
+            .as_deref()
+            .and_then(supported_shell_path_and_type)
+        {
+            let session_id = generate_session_id();
+            let args = arguments_for_session_spawning_command(
+                resolved_pw_shell_path.as_path().to_string_lossy().as_ref(),
+                shell_type,
+                session_id,
+            );
+            return Some(ShellStarterSource::UserDefault(DirectShellStarter {
+                args,
+                shell_path: resolved_pw_shell_path,
+                shell_type,
+                session_id,
+            }));
+        }
+        let unsupported_shell = pw_shell_path;
+
+        let (resolved_default_shell_path, shell_type) = if let Some(shell_path_and_type) =
+            supported_shell_path_and_type(ZSH_SHELL_PATH)
+        {
+            shell_path_and_type
+        } else if let Some(shell_path_and_type) = supported_shell_path_and_type(BASH_SHELL_PATH) {
+            shell_path_and_type
+        } else if let Some(shell_path_and_type) = supported_shell_path_and_type(FISH_SHELL_PATH) {
+            shell_path_and_type
+        } else {
+            log::warn!(
+                "Did not find valid binaries when attempting to load fallback shell (not bash, fish, or zsh)."
+            );
+            return None;
+        };
+
+        let session_id = generate_session_id();
+        let args = arguments_for_session_spawning_command(
+            resolved_default_shell_path
+                .as_path()
+                .to_string_lossy()
+                .as_ref(),
+            shell_type,
+            session_id,
+        );
+        Some(ShellStarterSource::Fallback {
+            unsupported_shell,
+            starter: DirectShellStarter {
+                args,
+                shell_path: resolved_default_shell_path,
+                shell_type,
+                session_id,
+            },
+        })
     }
 
     pub fn shell_type(&self) -> ShellType {
@@ -389,20 +344,6 @@ impl ShellStarter {
                     starter.display_name()
                 }
             }
-        }
-    }
-
-    /// How to present this data to the user for error messages.
-    #[cfg(windows)]
-    pub(super) fn shell_detail(&self) -> String {
-        match self {
-            Self::Direct(starter) | Self::MSYS2(starter) => {
-                starter.logical_shell_path().to_string_lossy().into_owned()
-            }
-            Self::DockerSandbox(starter) => {
-                starter.logical_shell_path().to_string_lossy().into_owned()
-            }
-            Self::Wsl(starter) => starter.distribution().to_owned(),
         }
     }
 }
@@ -448,7 +389,6 @@ pub enum ShellStarterSource {
     /// The user chose the path to the shell by setting the `WARP_SHELL_PATH` environment variable.
     Environment(DirectShellStarter),
     /// The default shell for the user (as indicated by the user's passwd entry on UNIX).
-    /// On Windows, this an ordered list of shells hardcoded _by Warp_.
     UserDefault(DirectShellStarter),
     /// We weren't able to find a shell that could be bootstrapped for the user.
     Fallback {
@@ -577,8 +517,6 @@ impl DirectShellStarter {
             .is_some_and(|stem| stem.eq_ignore_ascii_case("powershell"))
         {
             "Windows PowerShell"
-        } else if self.shell_type == ShellType::PowerShell && cfg!(windows) {
-            "PowerShell Core"
         } else {
             self.shell_type.name()
         }
@@ -886,27 +824,9 @@ fn decode_wsl_path_result(result: io::Result<process::Output>) -> Option<UnixPat
         }
     };
     if !output.status.success() {
-        // Errors with wsl.exe usage itself outputs error messages in UTF-16.
-        cfg_if::cfg_if! {
-            // WSL is Windows only, but most of the WSL code isn't cfg-guarded. This
-            // snipped does need to be guarded.
-            if #[cfg(windows)] {
-                use std::os::windows::ffi::OsStringExt as _;
-                let wsl_err_msg = OsString::from_wide(bytemuck::cast_slice(&output.stdout));
-            } else {
-                let wsl_err_msg = "";
-            }
-        }
-        // If wsl.exe was correctly invoked but the Linux command had an error, that will
-        // be UTF-8.
-        if wsl_err_msg.is_empty() {
-            if let Ok(inner_err_msg) = String::from_utf8(output.stderr) {
-                log::error!("Error from WSL command: {inner_err_msg}");
-                report_error!("Error from WSL command");
-            }
-        } else {
-            log::error!("Error invoking wsl.exe: {wsl_err_msg:?}");
-            report_error!("Error invoking wsl.exe");
+        if let Ok(inner_err_msg) = String::from_utf8(output.stderr) {
+            log::error!("Error from WSL command: {inner_err_msg}");
+            report_error!("Error from WSL command");
         }
         return None;
     }

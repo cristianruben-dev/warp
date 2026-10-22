@@ -2171,8 +2171,6 @@ impl CodeView {
             if local_path.is_some() {
                 let reveal_label = if cfg!(target_os = "macos") {
                     "Reveal in Finder"
-                } else if cfg!(target_os = "windows") {
-                    "Reveal in Explorer"
                 } else {
                     "Reveal in file manager"
                 };

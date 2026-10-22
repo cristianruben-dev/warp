@@ -133,8 +133,6 @@ impl Drop for SpawnedChildCleanup {
 }
 
 enum CommandBuilder<'a> {
-    #[cfg(windows)]
-    CmdExe,
     ShellType {
         shell_type: ShellType,
         local_shell_path: Option<&'a Path>,
@@ -144,14 +142,6 @@ enum CommandBuilder<'a> {
 impl CommandBuilder<'_> {
     fn build(self, command_string: &str, shell_config_flag: Option<&str>) -> Command {
         match self {
-            #[cfg(windows)]
-            CommandBuilder::CmdExe => {
-                use command::windows::CommandExt as _;
-                let mut command = Command::new_with_process_group("cmd.exe");
-                command.args(["/Q", "/C"]);
-                command.raw_arg(command_string);
-                command
-            }
             CommandBuilder::ShellType {
                 local_shell_path,
                 shell_type,
@@ -231,11 +221,7 @@ impl LocalCommandExecutor {
     ) -> Result<CommandOutput> {
         let shell_config_flag = match self.shell_type {
             ShellType::Bash | ShellType::Zsh | ShellType::Fish => Some("-l"),
-            #[cfg(not(windows))]
             ShellType::PowerShell => Some("-Login"),
-            // Windows PowerShell 5.1 does not support `-Login` and loads the user's profile by default.
-            #[cfg(windows)]
-            ShellType::PowerShell => None,
         };
 
         self.execute_local_command_internal(
@@ -260,23 +246,6 @@ impl LocalCommandExecutor {
         CommandBuilder::ShellType {
             shell_type: self.shell_type,
             local_shell_path: self.local_shell_path.as_deref(),
-        }
-    }
-
-    #[cfg(windows)]
-    fn command_builder(
-        &self,
-        execute_command_options: ExecuteCommandOptions,
-    ) -> CommandBuilder<'_> {
-        let use_cmd_exe = !execute_command_options.run_command_in_same_shell_as_session
-            && self.shell_type == ShellType::PowerShell;
-        if use_cmd_exe {
-            CommandBuilder::CmdExe
-        } else {
-            CommandBuilder::ShellType {
-                shell_type: self.shell_type,
-                local_shell_path: self.local_shell_path.as_deref(),
-            }
         }
     }
 

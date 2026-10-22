@@ -384,20 +384,17 @@ pub fn get_context_target_terminal_view(
         })
 }
 
-pub fn get_terminal_background_fill(
-    window_id: WindowId,
-    app: &AppContext,
-) -> warpui::elements::Fill {
+pub fn get_terminal_background_fill(app: &AppContext) -> warpui::elements::Fill {
     let theme = Appearance::as_ref(app).theme();
-    let terminal_opacity = get_terminal_background_opacity(window_id, app);
+    let terminal_opacity = get_terminal_background_opacity(app);
     theme.background().with_opacity(terminal_opacity).into()
 }
 
-fn get_terminal_background_opacity(window_id: WindowId, app: &AppContext) -> u8 {
+fn get_terminal_background_opacity(app: &AppContext) -> u8 {
     let theme = Appearance::as_ref(app).theme();
     let background_opacity = WindowSettings::as_ref(app)
         .background_opacity
-        .effective_opacity(window_id, app);
+        .effective_opacity();
 
     match theme.background_image() {
         Some(img) => {

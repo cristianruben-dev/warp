@@ -159,9 +159,6 @@ fn parse_osc_7_cwd(payload: &[u8]) -> Option<String> {
 
     let decoded = percent_decode_utf8(encoded_path)?;
 
-    #[cfg(windows)]
-    let decoded = warp_util::path::file_uri_drive_path_to_windows(&decoded).into_owned();
-
     Some(decoded)
 }
 
@@ -1511,10 +1508,7 @@ where
             // - CSI > flags u         (push current flags and set new flags)
             // - CSI < count u         (pop keyboard modes)
             // - CSI ? u               (query current flags)
-            // Disabled on Windows because ConPTY cannot forward kitty-encoded key
-            // events or terminal query responses, causing applications (e.g. running
-            // in WSL) to hang.
-            ('u', Some(b'=')) if cfg!(not(windows)) => {
+            ('u', Some(b'=')) => {
                 let flags = KeyboardModes::from_bits_truncate(next_param_or(0) as u32);
                 let apply_mode = next_param_or(1);
                 let Some(apply) = KeyboardModesApplyBehavior::from_kitty_apply_mode(apply_mode)
@@ -1523,15 +1517,15 @@ where
                 };
                 handler.set_keyboard_enhancement_flags(flags, apply);
             }
-            ('u', Some(b'>')) if cfg!(not(windows)) => {
+            ('u', Some(b'>')) => {
                 let flags = KeyboardModes::from_bits_truncate(next_param_or(0) as u32);
                 handler.push_keyboard_enhancement_flags(flags);
             }
-            ('u', Some(b'<')) if cfg!(not(windows)) => {
+            ('u', Some(b'<')) => {
                 let count = next_param_or(1);
                 handler.pop_keyboard_enhancement_flags(count);
             }
-            ('u', Some(b'?')) if cfg!(not(windows)) => {
+            ('u', Some(b'?')) => {
                 handler.query_keyboard_enhancement_flags(writer);
             }
             ('X', None) => handler.erase_chars(next_param_or(1) as usize),

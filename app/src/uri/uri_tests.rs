@@ -421,9 +421,6 @@ fn test_action_create_environment_parse_no_repos() {
 }
 
 fn open_file_editor_test_path(file_name: &str) -> (String, PathBuf) {
-    #[cfg(windows)]
-    let path = format!("C:/tmp/{file_name}");
-    #[cfg(not(windows))]
     let path = format!("/tmp/{file_name}");
 
     (path.clone(), PathBuf::from(path))

@@ -8,8 +8,6 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, thread_rng};
 use regex::Regex;
 use warp_core::command::ExitCode;
-#[cfg(windows)]
-use warp_core::paths::base_config_dir;
 
 use crate::terminal::local_tty::shell::{DirectShellStarter, ShellStarter, ShellStarterSource};
 use crate::terminal::shell;
@@ -85,10 +83,7 @@ pub fn current_shell_starter_and_version() -> (DirectShellStarter, String) {
 pub fn default_histfile_directory(shell: &ShellType, home_dir: &Path) -> PathBuf {
     match shell {
         ShellType::Fish => home_dir.join(".local/share/fish"),
-        #[cfg(not(windows))]
         ShellType::PowerShell => home_dir.join(".local/share/powershell/PSReadLine"),
-        #[cfg(windows)]
-        ShellType::PowerShell => base_config_dir().join("Microsoft/Windows/PowerShell/PSReadLine"),
         _ => home_dir.to_owned(),
     }
 }

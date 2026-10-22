@@ -570,11 +570,7 @@ fn reveal_in_file_manager_label() -> &'static str {
     {
         "View in Finder"
     }
-    #[cfg(target_os = "windows")]
-    {
-        "Show in Explorer"
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(target_os = "macos"))]
     {
         "Open folder"
     }

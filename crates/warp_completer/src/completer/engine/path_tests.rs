@@ -3,14 +3,6 @@ use warp_command_signatures::IconType;
 use super::*;
 use crate::completer::testing::MockPathCompletionContext;
 
-#[cfg(windows)]
-mod windows_constants {
-    pub(super) const TEST_HOME_DIR: &str = r"C:\Users\test";
-}
-
-#[cfg(windows)]
-use windows_constants::*;
-
 #[cfg(unix)]
 mod unix_constants {
     pub(super) const TEST_HOME_DIR: &str = "/users/test";
@@ -106,10 +98,6 @@ fn dir_entry(file_name: &str) -> EngineDirEntry {
     }
 }
 
-#[cfg_attr(
-    windows,
-    ignore = "CORE-3696: path sorting comparison function needs separators"
-)]
 #[test]
 pub fn test_sorted_paths_relative_to() {
     let ctx = MockPathCompletionContext::default().with_entries_in_pwd([
@@ -277,10 +265,6 @@ pub fn test_sorted_directories_relative_to() {
 
 /// Verify that path suggestions are sorted case-insensitively so that uppercase entries
 /// don't always appear before lowercase ones.
-#[cfg_attr(
-    windows,
-    ignore = "CORE-3696: path sorting comparison function needs separators"
-)]
 #[test]
 pub fn test_sorted_paths_case_insensitive_ordering() {
     let ctx = MockPathCompletionContext::default().with_entries_in_pwd([

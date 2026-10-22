@@ -19,9 +19,6 @@ use typed_path::{
 };
 
 use crate::standardized_path::StandardizedPath;
-#[cfg(windows)]
-#[path = "path/windows.rs"]
-pub mod windows;
 
 lazy_static! {
     /// Test home directory value for tests.
@@ -103,11 +100,9 @@ pub fn user_friendly_path<'a>(path: &'a str, home_dir: Option<&str>) -> Cow<'a, 
                             .chars()
                             .next()
                             .expect("already verified `path_without_home` not empty");
-                        // TODO While checking `cfg!(windows)` is usually correct for determining
-                        // path separators, it doesn't acccount for WSL for example.
-                        if (cfg!(windows) && (next_char == '/' || next_char == '\\'))
-                            || (cfg!(unix) && next_char == '/')
-                        {
+                        // TODO Checking the compile-time target for path separators doesn't
+                        // account for WSL, for example.
+                        if cfg!(unix) && next_char == '/' {
                             Cow::Owned("~".to_owned() + path_without_home)
                         } else {
                             Cow::Borrowed(path)
@@ -597,35 +592,6 @@ pub fn parse_wsl_unc_path(path: &Path) -> Option<WslUncPath> {
     })
 }
 
-#[cfg(windows)]
-fn prefix(path: &Path) -> Option<std::path::Prefix<'_>> {
-    use std::path::Component;
-
-    path.components()
-        .next()
-        .and_then(|component| match component {
-            Component::Prefix(prefix) => Some(prefix.kind()),
-            _ => None,
-        })
-}
-
-/// Returns true if the given path is a network resource, indicated by the path
-/// starting with a UNC prefix. For more on UNC paths, see:
-/// https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#unc-paths
-#[cfg(windows)]
-pub fn is_network_resource(path: &Path) -> bool {
-    use std::path::Prefix;
-
-    match prefix(path) {
-        // Windows exposes the WSL filesystem over UNC, but it is served locally, so it is not a
-        // network resource.
-        Some(Prefix::UNC(host, _)) | Some(Prefix::VerbatimUNC(host, _)) => {
-            !host.to_str().is_some_and(is_wsl_unc_host)
-        }
-        _ => false,
-    }
-}
-
 /// Convert to the preferred executable inside the Git Bash installation dir.
 ///
 /// Git Bash installations include an exe in both "./bin/bash.exe" and "./usr/bin/bash.exe". The
@@ -659,12 +625,10 @@ pub fn is_msys2_path(path: &Path) -> bool {
 ///
 /// # Returns
 /// * `Some(String)` - The relative path as a string, guaranteed to not have leading slashes
-/// * `None` - If the paths cannot be made relative (e.g., on different drives on Windows)
+/// * `None` - If the paths cannot be made relative
 ///
 /// # Examples
 /// ```
-/// # #[cfg(not(windows))]
-/// # {
 /// use std::path::Path;
 /// use warp_util::path::to_relative_path;
 ///
@@ -672,35 +636,11 @@ pub fn is_msys2_path(path: &Path) -> bool {
 /// let abs_path = Path::new("/Users/john/projects/app/src/main.rs");
 /// let cwd = Path::new("/Users/john/projects");
 /// assert_eq!(to_relative_path(is_wsl, abs_path, cwd), Some("app/src/main.rs".to_string()));
-/// # }
 /// ```
 pub fn to_relative_path(is_wsl: bool, absolute_path: &Path, cwd: &Path) -> Option<String> {
     // For now, we don't support relative paths in WSL.
     if is_wsl {
         return None;
-    }
-
-    // On Windows, check if paths are on different drives
-    #[cfg(windows)]
-    {
-        use std::path::Component;
-
-        let abs_drive = absolute_path.components().next().and_then(|c| match c {
-            Component::Prefix(prefix) => Some(prefix.kind()),
-            _ => None,
-        });
-
-        let cwd_drive = cwd.components().next().and_then(|c| match c {
-            Component::Prefix(prefix) => Some(prefix.kind()),
-            _ => None,
-        });
-
-        // If both paths have drive prefixes but they're different, return None
-        if let (Some(abs_prefix), Some(cwd_prefix)) = (abs_drive, cwd_drive)
-            && abs_prefix != cwd_prefix
-        {
-            return None;
-        }
     }
 
     pathdiff::diff_paths(absolute_path, cwd).map(|relative_path| {
@@ -1034,30 +974,7 @@ fn resolve_executable_in_dir(path_dir: &Path, command: &str) -> Option<PathBuf> 
         return Some(resolved);
     }
 
-    #[cfg(windows)]
-    if Path::new(command).extension().is_none() {
-        for ext in windows_path_extensions() {
-            let resolved = path_dir.join(format!("{command}{ext}"));
-            if file_exists_and_is_executable(&resolved) {
-                return Some(resolved);
-            }
-        }
-    }
-
     None
-}
-
-#[cfg(windows)]
-fn windows_path_extensions() -> impl Iterator<Item = String> {
-    env::var_os("PATHEXT")
-        .unwrap_or_default()
-        .to_string_lossy()
-        .split(';')
-        .map(str::trim)
-        .filter(|ext| !ext.is_empty())
-        .map(str::to_owned)
-        .collect::<Vec<_>>()
-        .into_iter()
 }
 #[cfg(test)]
 #[path = "path_tests.rs"]

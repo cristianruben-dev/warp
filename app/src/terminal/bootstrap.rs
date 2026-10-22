@@ -82,9 +82,7 @@ pub fn should_use_rc_file_bootstrap_method(
             shell_type == ShellType::Fish
                 || shell_type == ShellType::PowerShell
                 || is_poetry_subshell
-                || ((is_pipenv_subshell
-                    || (subshell_initialization_info.is_some() && cfg!(windows)))
-                    && shell_type == ShellType::Zsh)
+                || (is_pipenv_subshell && shell_type == ShellType::Zsh)
                 || is_msys2
         }
         BootstrapSessionType::WarpifiedRemote => false,

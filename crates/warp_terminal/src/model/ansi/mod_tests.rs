@@ -1438,40 +1438,6 @@ fn parse_osc7_empty_payload_ignored() {
     assert!(handler.cwd_updates.is_empty());
 }
 
-#[cfg(windows)]
-#[test]
-fn parse_osc7_windows_drive_letter_normalized() {
-    let local =
-        crate::model::session::get_local_hostname().expect("test requires a real local hostname");
-    let payload = format!("\x1b]7;file://{local}/E:/CLAUDE-BASE\x07");
-    let (_, handler) = parse_bytes(payload.as_bytes());
-
-    assert_eq!(handler.cwd_updates, vec![r"E:\CLAUDE-BASE".to_string()]);
-}
-
-#[cfg(windows)]
-#[test]
-fn parse_osc7_windows_drive_letter_root() {
-    let local =
-        crate::model::session::get_local_hostname().expect("test requires a real local hostname");
-    let payload = format!("\x1b]7;file://{local}/E:/\x07");
-    let (_, handler) = parse_bytes(payload.as_bytes());
-
-    assert_eq!(handler.cwd_updates, vec![r"E:\".to_string()]);
-}
-
-#[cfg(windows)]
-#[test]
-fn parse_osc7_windows_drive_letter_percent_encoded() {
-    let local =
-        crate::model::session::get_local_hostname().expect("test requires a real local hostname");
-    let payload = format!("\x1b]7;file://{local}/E:/My%20Code\x07");
-    let (_, handler) = parse_bytes(payload.as_bytes());
-
-    assert_eq!(handler.cwd_updates, vec![r"E:\My Code".to_string()]);
-}
-
-#[cfg(not(windows))]
 #[test]
 fn parse_osc7_posix_path_not_mangled_non_windows() {
     let local =

@@ -129,9 +129,8 @@ pub struct CheckpointGeneration(String);
 
 impl CheckpointGeneration {
     /// Test-only escape hatch; production code mints generations via
-    /// `snapshot::mint_generation`. Gated to match `driver::snapshot`'s test module, which
-    /// does not build on Windows.
-    #[cfg(all(test, not(windows)))]
+    /// `snapshot::mint_generation`.
+    #[cfg(test)]
     pub(crate) fn new_for_test(value: impl Into<String>) -> Self {
         Self(value.into())
     }

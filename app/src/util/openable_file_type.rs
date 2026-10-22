@@ -137,15 +137,7 @@ pub fn is_runnable_shell_script(path: &Path) -> bool {
     starts_with_shebang(path)
 }
 
-#[cfg(windows)]
-pub fn is_runnable_shell_script(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
-        .is_some_and(|ext| matches!(ext.as_str(), "ps1" | "bat" | "cmd"))
-}
-
-#[cfg(not(any(unix, windows)))]
+#[cfg(not(unix))]
 pub fn is_runnable_shell_script(_path: &Path) -> bool {
     false
 }

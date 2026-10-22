@@ -26,8 +26,6 @@ use self::key_events::convert_keyboard_input_event;
 use super::CustomEvent;
 use super::app::ClipboardEvent;
 use super::window::DEFAULT_TITLEBAR_HEIGHT;
-#[cfg(windows)]
-use super::windows::{WindowsNetworkConnectionPoint, add_network_connection_listener};
 use crate::Event::{ClearMarkedText, SetMarkedText, TypedCharacters};
 use crate::actions::StandardAction;
 use crate::r#async::Timer;
@@ -40,7 +38,6 @@ use crate::platform::app::{
 use crate::platform::{self, NotificationInfo, OperatingSystem, TerminationMode, WindowContext};
 use crate::rendering::wgpu::renderer;
 use crate::windowing::winit::app::RequestPermissionsCallback;
-use crate::windowing::winit::window::MIN_WINDOW_SIZE;
 use crate::{AppContext, WindowId};
 
 /// This is the time duration beyond which clicks get treated as separate single clicks instead of
@@ -242,9 +239,6 @@ impl LogicalPositionExt for winit::dpi::LogicalPosition<f32> {
 struct State {
     windows: HashMap<winit::window::WindowId, WindowState>,
     pending_active_window_change: Option<ActiveWindowChange>,
-
-    #[cfg(windows)]
-    network_connection_listener: Option<WindowsNetworkConnectionPoint>,
 }
 
 /// This enum holds the state needed to convert multiple emitted
@@ -579,16 +573,6 @@ impl EventLoop {
                     }
                 }
 
-                #[cfg(windows)]
-                match add_network_connection_listener(self.proxy.clone()) {
-                    Ok(listener) => {
-                        self.state.network_connection_listener = Some(listener);
-                    }
-                    Err(e) => {
-                        log::warn!("Creating a network connection listener failed: {e:?}");
-                    }
-                }
-
                 // Initialize soft keyboard support on mobile WASM devices.
                 #[cfg(target_family = "wasm")]
                 {
@@ -878,52 +862,11 @@ impl EventLoop {
             } => {
                 self.handle_ime_event(window_id, evt);
             }
+            // Window size is not adjusted on scale factor changes.
             Event::WindowEvent {
-                window_id,
-                event:
-                    WindowEvent::ScaleFactorChanged {
-                        scale_factor,
-                        mut inner_size_writer,
-                    },
-            } => {
-                // The following correction is only needed on Windows.
-                if !cfg!(windows) {
-                    return;
-                }
-                let Some(window_state) = self.state.windows.get(&window_id) else {
-                    return;
-                };
-                let Some(window) = self
-                    .ui_app
-                    .read(|ctx| ctx.windows().platform_window(window_state.window_id))
-                else {
-                    return;
-                };
-
-                // There is a winit bug such that events which cause a window to switch displays to
-                // one with a different scale factor resize the Warp window to an absurdly small
-                // size, <157, 25> on my system when I repro it. Events include unplugging a
-                // display, changing a display from extended to mirrored, and the like. We work
-                // around that by listening for [`WindowEvent::ScaleFactorChanged`] and changing
-                // the size back up to the minimum dimensions.
-                let size = window.as_ctx().size();
-                let mut size = LogicalSize::new(size.x() as f64, size.y() as f64);
-                let mut request_new_size = false;
-                if size.width < MIN_WINDOW_SIZE.width {
-                    size.width = MIN_WINDOW_SIZE.width;
-                    request_new_size = true;
-                }
-                if size.height < MIN_WINDOW_SIZE.height {
-                    size.height = MIN_WINDOW_SIZE.height;
-                    request_new_size = true;
-                }
-                if request_new_size
-                    && let Err(err) =
-                        inner_size_writer.request_inner_size(size.to_physical(scale_factor))
-                {
-                    log::warn!("unable to correct window size: {err:#}");
-                }
-            }
+                event: WindowEvent::ScaleFactorChanged { .. },
+                ..
+            } => {}
             Event::WindowEvent { window_id, event } => self.handle_window_event(window_id, event),
             Event::LoopExiting => {
                 // Hide all open windows such that, if the application takes a
@@ -938,11 +881,6 @@ impl EventLoop {
                         },
                     );
                 });
-
-                #[cfg(windows)]
-                if let Some(network_listener) = self.state.network_connection_listener.take() {
-                    network_listener.clean_up();
-                }
 
                 self.callbacks.app_will_terminate();
 

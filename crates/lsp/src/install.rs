@@ -215,12 +215,7 @@ pub async fn install_from_github(
         .await
         .with_context(|| format!("Failed to create install directory: {:?}", install_dir))?;
 
-    // The binary name is the server name (with .exe on Windows)
-    let binary_name = if cfg!(windows) {
-        format!("{server_name}.exe")
-    } else {
-        server_name.to_string()
-    };
+    let binary_name = server_name.to_string();
 
     // Download the file
     log::info!("Downloading {server_name} from {url}");

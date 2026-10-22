@@ -16,14 +16,6 @@ use crate::signatures::testing::{
     add_content_signature, create_test_command_registry, git_signature, test_signature,
 };
 
-#[cfg(windows)]
-mod windows_constants {
-    pub(super) const TEST_WORK_DIR: &str = r"C:\";
-}
-
-#[cfg(windows)]
-use windows_constants::*;
-
 #[cfg(unix)]
 mod unix_constants {
     pub(super) const TEST_WORK_DIR: &str = "/home/";

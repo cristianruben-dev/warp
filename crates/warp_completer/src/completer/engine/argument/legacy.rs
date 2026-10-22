@@ -9,7 +9,6 @@ use warp_command_signatures::{
     Argument, ArgumentType, DynamicCompletionData, Generator, GeneratorProcess, Signature,
     Template, TemplateFilter, TemplateType,
 };
-use warp_core::features::FeatureFlag;
 use warp_util::path::ShellFamily;
 
 use super::add_extra_positional;
@@ -797,13 +796,9 @@ fn shell_command<'a>(
     shell_family: ShellFamily,
     command_env_vars: &[String],
 ) -> Cow<'a, str> {
-    let shell = if cfg!(windows) && FeatureFlag::RunGeneratorsWithCmdExe.is_enabled() {
-        warp_command_signatures::Shell::CmdExe
-    } else {
-        match shell_family {
-            ShellFamily::Posix => warp_command_signatures::Shell::Posix,
-            ShellFamily::PowerShell => warp_command_signatures::Shell::Powershell,
-        }
+    let shell = match shell_family {
+        ShellFamily::Posix => warp_command_signatures::Shell::Posix,
+        ShellFamily::PowerShell => warp_command_signatures::Shell::Powershell,
     };
 
     match &generator.process {

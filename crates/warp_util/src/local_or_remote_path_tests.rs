@@ -10,8 +10,6 @@ fn test_host_id() -> HostId {
 fn local_repo_path() -> std::path::PathBuf {
     #[cfg(unix)]
     let path = "/repo";
-    #[cfg(windows)]
-    let path = r"C:\repo";
 
     path.into()
 }
@@ -23,8 +21,6 @@ fn local_file_path() -> std::path::PathBuf {
 fn local_absolute_file_path() -> std::path::PathBuf {
     #[cfg(unix)]
     let path = "/server/repo/src/foo.rs";
-    #[cfg(windows)]
-    let path = r"C:\server\repo\src\foo.rs";
 
     path.into()
 }

@@ -42,7 +42,6 @@ fn harness_failure_output_uses_harness_truncation_marker() {
     assert!(prepared.contains(HARNESS_FAILURE_OUTPUT_TRUNCATION_MARKER));
 }
 
-#[cfg(not(windows))]
 #[test]
 fn validate_cli_installed_succeeds_for_known_binary() {
     assert!(validate_cli_installed("ls", None).is_ok());

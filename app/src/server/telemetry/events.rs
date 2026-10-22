@@ -2326,24 +2326,6 @@ pub enum TelemetryEvent {
         /// Whether or not Universal Developer Input mode is enabled
         is_udi_enabled: bool,
     },
-    /// An error was encountered fetching available WSL distributions from the Registry.
-    /// This typically means the user hasn't installed or enabled WSL.
-    #[cfg(windows)]
-    WSLRegistryError,
-    #[cfg(windows)]
-    AutoupdateUnableToCloseApplications,
-    #[cfg(windows)]
-    AutoupdateFileInUse,
-    #[cfg(windows)]
-    AutoupdateMutexTimeout,
-    #[cfg(windows)]
-    AutoupdateForcekillFailed {
-        exit_code: i32,
-    },
-    #[cfg(windows)]
-    AutoupdateMinidumpCleanupFailed {
-        exit_code: i32,
-    },
     ExecutedWarpDrivePrompt {
         id: Option<WorkflowId>,
         selection_source: WorkflowSelectionSource,
@@ -4424,19 +4406,6 @@ impl TelemetryEvent {
             TelemetryEvent::AgentModeSetupCreateEnvironmentAction { action } => Some(json!({
                 "action": action,
             })),
-            #[cfg(windows)]
-            TelemetryEvent::WSLRegistryError
-            | TelemetryEvent::AutoupdateUnableToCloseApplications
-            | TelemetryEvent::AutoupdateFileInUse
-            | TelemetryEvent::AutoupdateMutexTimeout => None,
-            #[cfg(windows)]
-            TelemetryEvent::AutoupdateForcekillFailed { exit_code } => Some(json!({
-                "exit_code": exit_code,
-            })),
-            #[cfg(windows)]
-            TelemetryEvent::AutoupdateMinidumpCleanupFailed { exit_code } => Some(json!({
-                "exit_code": exit_code,
-            })),
             TelemetryEvent::InputBufferSubmitted {
                 input_type,
                 is_locked,
@@ -5203,13 +5172,6 @@ impl TelemetryEvent {
             TelemetryEvent::CodePaneOpened { .. }
             | TelemetryEvent::CodePanelsFileOpened { .. }
             | TelemetryEvent::PreviewPanePromoted => false,
-            #[cfg(windows)]
-            TelemetryEvent::WSLRegistryError
-            | TelemetryEvent::AutoupdateUnableToCloseApplications
-            | TelemetryEvent::AutoupdateFileInUse
-            | TelemetryEvent::AutoupdateMutexTimeout
-            | TelemetryEvent::AutoupdateForcekillFailed { .. }
-            | TelemetryEvent::AutoupdateMinidumpCleanupFailed { .. } => false,
         }
     }
 
@@ -5629,13 +5591,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::AttachedImagesToAgentModeQuery => {
                 EnablementState::Flag(FeatureFlag::ImageAsContext)
             }
-            #[cfg(windows)]
-            Self::WSLRegistryError
-            | Self::AutoupdateUnableToCloseApplications
-            | Self::AutoupdateFileInUse
-            | Self::AutoupdateMutexTimeout
-            | Self::AutoupdateForcekillFailed { .. }
-            | Self::AutoupdateMinidumpCleanupFailed { .. } => EnablementState::Always,
             Self::ToggleCodebaseContext => EnablementState::Always,
             Self::ToggleAutoIndexing => EnablementState::Always,
             Self::AgentModeRatedResponse => {
@@ -6152,22 +6107,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
             Self::QueuedPromptReordered => "QueuedPrompt.Reordered",
             Self::QueuedPromptPanelCollapseToggled => "QueuedPrompt.PanelCollapseToggled",
             Self::QueuedPromptSentNow => "QueuedPrompt.SentNow",
-            #[cfg(windows)]
-            Self::WSLRegistryError => "WSL Distribution Registry Error",
-            #[cfg(windows)]
-            Self::AutoupdateUnableToCloseApplications => {
-                "Windows Autoupdate: Setup Unable to Close Applications"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateFileInUse => "Windows Autoupdate: File In Use Error",
-            #[cfg(windows)]
-            Self::AutoupdateMutexTimeout => "Windows Autoupdate: Mutex Timeout",
-            #[cfg(windows)]
-            Self::AutoupdateForcekillFailed { .. } => "Windows Autoupdate: Forcekill Failed",
-            #[cfg(windows)]
-            Self::AutoupdateMinidumpCleanupFailed { .. } => {
-                "Windows Autoupdate: Minidump Cleanup Failed"
-            }
             Self::ToggleCodebaseContext => "Toggle Agent Mode Codebase Context",
             Self::ToggleAutoIndexing => "Toggle Codebase Context Autoindexing",
             Self::AttachedImagesToAgentModeQuery => "AgentMode.AttachedImages",
@@ -6924,30 +6863,6 @@ impl TelemetryEventDesc for TelemetryEventDiscriminants {
                 "Autoexecuted an Agent Mode requested command"
             }
             Self::AttachedImagesToAgentModeQuery => "Attached images to an Agent Mode query",
-            #[cfg(windows)]
-            Self::WSLRegistryError => {
-                "Encountered an error while fetching WSL distributions from the registry"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateUnableToCloseApplications => {
-                "The Windows auto-update installer was unable to automatically close all applications before installing the update"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateFileInUse => {
-                "The Windows auto-update installer encountered a file-in-use error during installation"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateMutexTimeout => {
-                "The Windows auto-update installer timed out waiting for Warp to release its mutex; a force-kill was attempted"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateForcekillFailed { .. } => {
-                "The Windows auto-update installer failed to force-kill Warp after the mutex timeout"
-            }
-            #[cfg(windows)]
-            Self::AutoupdateMinidumpCleanupFailed { .. } => {
-                "The Windows auto-update installer failed to clean up the orphaned minidump server process"
-            }
             Self::ToggleCodebaseContext => {
                 "Toggled on/off the enablement of codebase context usage for Agent Mode."
             }

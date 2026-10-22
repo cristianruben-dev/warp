@@ -65,7 +65,7 @@ enum Config {
     Wsl {
         distro: String,
     },
-    #[cfg_attr(any(not(feature = "local_tty"), unix), allow(dead_code))]
+    #[allow(dead_code)]
     MSYS2(LocalConfig),
     #[cfg_attr(not(feature = "local_tty"), allow(dead_code))]
     Custom(LocalConfig),
@@ -293,19 +293,7 @@ impl AvailableShell {
         }
     }
 
-    #[cfg(windows)]
-    fn new_msys2(command: String, executable_path: PathBuf, shell_type: ShellType) -> Self {
-        Self {
-            id: Some(format!("msys2:{}", executable_path.display())),
-            state: Arc::new(Config::MSYS2(LocalConfig {
-                command,
-                executable_path,
-                shell_type,
-            })),
-        }
-    }
-
-    #[cfg_attr(not(windows), allow(dead_code))]
+    #[allow(dead_code)]
     fn new_wsl(distro: String) -> Self {
         Self {
             id: Some(format!("wsl:{distro}")),
@@ -448,11 +436,11 @@ impl AvailableShells {
 
 #[cfg(feature = "local_tty")]
 impl AvailableShells {
-    pub fn new(_ctx: &mut ModelContext<Self>) -> Self {
+    fn new() -> Self {
         let fallback_shells_path = cfg!(unix).then_some(Path::new("/etc/shells"));
 
         let env_path = std::env::var_os("PATH").unwrap_or_default();
-        #[cfg_attr(not(windows), allow(unused_mut))]
+        #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
         let mut paths_to_search = std::env::split_paths(&env_path).collect::<Vec<PathBuf>>();
 
         // The PATH here is limited since it doesn't include the locations added
@@ -466,29 +454,7 @@ impl AvailableShells {
             paths_to_search.push(PathBuf::from("/usr/local/bin"));
         }
 
-        // The user may have installed PowerShell in locations not in the system
-        // path. We add some typical install locations for PowerShell to the paths
-        // to search.
-        #[cfg(windows)]
-        {
-            use warp_util::path::windows;
-
-            paths_to_search.extend(windows::powershell_7_install_paths());
-            paths_to_search.push(windows::powershell_5_install_path());
-        }
-
-        #[cfg_attr(not(windows), allow(unused_mut))]
-        let mut shells = Self::load_known_shells(&paths_to_search, fallback_shells_path);
-
-        #[cfg(windows)]
-        {
-            let ctx = _ctx;
-            shells.extend(
-                super::wsl::WslInfo::as_ref(ctx)
-                    .distributions()
-                    .map(|distro| AvailableShell::new_wsl(distro.name.to_owned())),
-            );
-        }
+        let shells = Self::load_known_shells(&paths_to_search, fallback_shells_path);
 
         let shell_counts = shells.iter().fold(HashMap::new(), |mut counts, shell| {
             let count = counts.entry(shell.short_name().to_string()).or_insert(0);
@@ -656,21 +622,6 @@ impl AvailableShells {
             .unwrap_or_default();
 
         for (shell_type, command_name) in shell_types {
-            #[cfg(windows)]
-            if ["bash.exe", "fish.exe", "zsh.exe"].contains(&command_name) {
-                let msys2_executables = Self::locate_msys2_executables();
-                for msys2_path in &msys2_executables {
-                    if msys2_path.ends_with(command_name) {
-                        known_shells.push(AvailableShell::new_msys2(
-                            command_name.to_string(),
-                            msys2_path.clone(),
-                            shell_type,
-                        ));
-                    }
-                }
-                continue;
-            }
-
             let mut fallback_shells = fallback_shell_map.remove(command_name).unwrap_or_default();
             for path in Self::resolve_all_executables(command_name, paths_to_search.iter()) {
                 fallback_shells.remove(&path);
@@ -697,114 +648,12 @@ impl AvailableShells {
     }
 
     fn get_shell_types() -> Vec<(ShellType, &'static str)> {
-        if cfg!(windows) {
-            vec![
-                (ShellType::PowerShell, "pwsh.exe"),
-                (ShellType::PowerShell, "powershell.exe"),
-                (ShellType::Zsh, "zsh.exe"),
-                (ShellType::Bash, "bash.exe"),
-                (ShellType::Fish, "fish.exe"),
-            ]
-        } else {
-            vec![
-                (ShellType::Zsh, "zsh"),
-                (ShellType::Bash, "bash"),
-                (ShellType::Fish, "fish"),
-                (ShellType::PowerShell, "pwsh"),
-            ]
-        }
-    }
-
-    /// Looks for UNIX shells running "natively" on Windows via MSYS2.
-    ///
-    /// Attempts to find Git Bash executables at a few locations:
-    /// 1. `$env:LocalAppData\Programs\Git\usr\bin`
-    /// 2. `$env:ProgramFiles\Git\usr\bin`
-    /// 3. Where scoop may have installed it
-    /// We don't want to search the PATH for a `bash.exe` since there are false positives.
-    /// Also search for bash/fish/zsh in the
-    #[cfg(windows)]
-    fn locate_msys2_executables() -> Vec<PathBuf> {
-        use std::env;
-
-        use warp_core::features::FeatureFlag;
-
-        let mut paths = Vec::new();
-
-        // We look for Git Bash at `$env:LocalAppData\Programs\Git\usr\bin`.
-        match env::var("LocalAppData") {
-            Ok(local_app_data_path) => {
-                let user_location = Path::new(&local_app_data_path)
-                    .join("Programs")
-                    .join("Git")
-                    .join("usr")
-                    .join("bin")
-                    .join("bash.exe");
-                if file_exists_and_is_executable(&user_location) {
-                    paths.push(user_location);
-                }
-            }
-            Err(err) => {
-                log::warn!("Environment variable LocalAppData not found {err:#}");
-            }
-        }
-
-        // Next, we look for Git Bash at `$env:ProgramFiles\Git\usr\bin`.
-        match env::var("ProgramFiles") {
-            Ok(program_files_path) => {
-                let global_location = Path::new(&program_files_path)
-                    .join("Git")
-                    .join("usr")
-                    .join("bin")
-                    .join("bash.exe");
-                if file_exists_and_is_executable(&global_location) {
-                    paths.push(global_location);
-                }
-            }
-            Err(err) => {
-                log::warn!("Environment variable ProgramFiles not found {err:#}");
-            }
-        }
-
-        // Next, we look for Git Bash where scoop, a package manager, may have installed it at
-        // `$env:USERPROFILE\scoop\apps\git\current\usr\bin`.
-        // Note that `current` is a symbolic link to the folder with the latest version.
-        if let Ok(user_profile) = env::var("USERPROFILE") {
-            let maybe_scoop_path = Path::new(&user_profile)
-                .join("scoop")
-                .join("apps")
-                .join("git")
-                .join("current")
-                .join("usr")
-                .join("bin")
-                .join("bash.exe");
-            if file_exists_and_is_executable(&maybe_scoop_path) {
-                paths.push(maybe_scoop_path);
-            }
-        }
-
-        if FeatureFlag::MSYS2Shells.is_enabled() {
-            // Search the default install location for MSYS2 shells (installed via pacman).
-            match env::var("SystemDrive") {
-                Ok(system_drive) => {
-                    let msys_bin = Path::new(&format!(r"{system_drive}\"))
-                        .join("msys64")
-                        .join("usr")
-                        .join("bin");
-                    for shell in ["bash.exe", "fish.exe", "zsh.exe"] {
-                        let msys_shell = msys_bin.join(shell);
-                        if file_exists_and_is_executable(&msys_shell) {
-                            paths.push(msys_shell);
-                        }
-                    }
-                }
-                Err(err) => {
-                    log::warn!("Environment variable SystemDrive not found {err:#}");
-                }
-            }
-        }
-
-        paths
+        vec![
+            (ShellType::Zsh, "zsh"),
+            (ShellType::Bash, "bash"),
+            (ShellType::Fish, "fish"),
+            (ShellType::PowerShell, "pwsh"),
+        ]
     }
 
     /// Resolves all full paths to executables of the given command name in PATH.
@@ -948,7 +797,7 @@ impl AvailableShells {
                         return false;
                     }
                 };
-                command_name_matches(command, name, cfg!(windows))
+                command_name_matches(command, name, false)
             })
             .cloned()
     }
@@ -963,7 +812,7 @@ impl AvailableShells {
 ///   and ignores an optional trailing `.exe` on either side.
 /// - On Unix, matching is a plain case-sensitive equality check.
 ///
-/// Parameterized (rather than keying off `cfg!(windows)` internally) so both
+/// Parameterized (rather than keying off the target OS internally) so both
 /// branches can be unit-tested from any host platform.
 #[cfg(feature = "local_tty")]
 fn command_name_matches(stored: &str, requested: &str, is_windows: bool) -> bool {
@@ -987,12 +836,9 @@ impl SingletonEntity for AvailableShells {}
 
 #[cfg(feature = "local_tty")]
 pub fn register(app: &mut impl warpui::AddSingletonModel) {
-    #[cfg(windows)]
-    app.add_singleton_model(super::wsl::WslInfo::new);
-    app.add_singleton_model(AvailableShells::new);
+    app.add_singleton_model(|_| AvailableShells::new());
 }
 
 #[cfg(test)]
-#[cfg(not(windows))]
 #[path = "available_shells_tests.rs"]
 mod tests;

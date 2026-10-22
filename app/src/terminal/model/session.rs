@@ -2,8 +2,6 @@ pub mod active_session;
 pub mod command_executor;
 
 use std::collections::{HashMap, HashSet};
-#[cfg(windows)]
-use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
@@ -52,21 +50,8 @@ use crate::terminal::{History, ShellHost, ShellLaunchData};
     reason = "Each variant names a distinct read failure, so the shared `Error` suffix is intentional."
 )]
 enum ReadHistoryContentsError {
-    /// Intentionally omit this source anyhow error as it may contain stderr contents which can be
-    /// lengthy.
-    #[cfg(windows)]
-    #[error("Error running PowerShell commands to read history file")]
-    PowerShellError(anyhow::Error),
-
     #[error("Error reading history file from filesystem")]
     AsyncFsError(#[source] std::io::Error),
-
-    #[cfg(windows)]
-    #[error("Error running PowerShell commands and reading from filesystem to read history file.")]
-    PowerShellAndAsyncFsError {
-        powershell_error: anyhow::Error,
-        async_fs_error: std::io::Error,
-    },
 }
 
 impl ErrorExt for ReadHistoryContentsError {
@@ -75,30 +60,6 @@ impl ErrorExt for ReadHistoryContentsError {
     }
 }
 register_error!(ReadHistoryContentsError);
-
-#[cfg(windows)]
-fn powershell_read_all_text_command(path: &OsStr) -> OsString {
-    let mut command = OsString::from("[System.IO.File]::ReadAllText('");
-    command.push(escape_powershell_single_quotes(path));
-    command.push("')");
-    command
-}
-
-/// Doubles every single quote in `path` so it is safe to embed inside a
-/// PowerShell single-quoted string literal.
-#[cfg(windows)]
-fn escape_powershell_single_quotes(path: &OsStr) -> OsString {
-    use std::os::windows::ffi::{OsStrExt, OsStringExt};
-    const SINGLE_QUOTE: u16 = b'\'' as u16;
-    let mut escaped = Vec::new();
-    for unit in path.encode_wide() {
-        escaped.push(unit);
-        if unit == SINGLE_QUOTE {
-            escaped.push(SINGLE_QUOTE);
-        }
-    }
-    OsString::from_wide(&escaped)
-}
 
 // SessionId is defined in warp_core and re-exported here for backward compatibility.
 use warp_errors::report_error;
@@ -1383,7 +1344,7 @@ impl Session {
         self.session_type() == SessionType::Local
     }
 
-    async fn read_history_for_local_session(&self, is_kaspersky_running: bool) -> Vec<String> {
+    async fn read_history_for_local_session(&self) -> Vec<String> {
         let histfile = &self.info.histfile;
         let shell_type = &self.info.shell.shell_type();
         let history_files = histfile.as_ref().map_or_else(
@@ -1403,13 +1364,7 @@ impl Session {
                     shell_type.name()
                 );
 
-                let contents = match Self::read_history_contents(
-                    history_file.as_path(),
-                    *shell_type,
-                    is_kaspersky_running,
-                )
-                .await
-                {
+                let contents = match Self::read_history_contents(history_file.as_path()).await {
                     Ok(contents) => contents,
                     Err(e) => {
                         report_error!(e);
@@ -1428,84 +1383,12 @@ impl Session {
         Vec::new()
     }
 
-    #[cfg_attr(not(windows), allow(unused_variables))]
     async fn read_history_contents(
         history_file: &Path,
-        shell_type: ShellType,
-        is_kaspersky_running: bool,
     ) -> Result<Vec<u8>, ReadHistoryContentsError> {
-        #[cfg(windows)]
-        if shell_type == ShellType::PowerShell {
-            return Self::read_powershell_history_contents(history_file, is_kaspersky_running)
-                .await;
-        }
-
         async_fs::read(history_file)
             .await
             .map_err(ReadHistoryContentsError::AsyncFsError)
-    }
-
-    /// Read the PowerShell history contents by running a PowerShell command and reading the output.
-    ///
-    /// This is a workaround as reading the history file using [`async_fs::read`] on Windows is a
-    /// trigger for certain antivirus software (Kaspersky).
-    #[cfg(windows)]
-    async fn read_powershell_history_contents(
-        history_file: &Path,
-        is_kaspersky_running: bool,
-    ) -> Result<Vec<u8>, ReadHistoryContentsError> {
-        // Try reading the history file using PowerShell commands first.
-        let powershell_error =
-            match Self::read_history_via_powershell(history_file.as_os_str()).await {
-                Ok(result) => return Ok(result),
-                Err(e) => e,
-            };
-        // Log the detailed error locally as a breadcrumb only; the failure is reported once at the
-        // sink via the registered `ReadHistoryContentsError`, whose static message keeps Sentry
-        // grouping stable and omits the (potentially sensitive/lengthy) PowerShell stderr.
-        log::error!("{powershell_error:?}");
-
-        // If Kaspersky is running, early return since we can't use [`async_fs`] to read the history
-        // file.
-        if is_kaspersky_running {
-            return Err(ReadHistoryContentsError::PowerShellError(powershell_error));
-        }
-
-        // Otherwise, fall back to using [`async_fs`] to read the history file.
-        async_fs::read(history_file).await.map_err(|e| {
-            ReadHistoryContentsError::PowerShellAndAsyncFsError {
-                powershell_error,
-                async_fs_error: e,
-            }
-        })
-    }
-
-    #[cfg(windows)]
-    async fn read_history_via_powershell(history_file_path: &OsStr) -> Result<Vec<u8>> {
-        let Some(powershell_command) = warp_util::path::windows::any_powershell_path() else {
-            return Err(anyhow::anyhow!(
-                "Failed to find powershell executable to read history"
-            ));
-        };
-
-        let read_result = command::r#async::Command::new(powershell_command)
-            .arg("-NoProfile")
-            .arg("-NoLogo")
-            .arg("-Command")
-            .arg(powershell_read_all_text_command(history_file_path))
-            .output()
-            .await;
-        match read_result {
-            Ok(output) if output.status.success() => Ok(output.stdout),
-            Ok(output) => Err(anyhow::anyhow!(
-                "Command to read history file failed with stderr: {:#}",
-                String::from_utf8_lossy(&output.stderr)
-            )),
-            Err(e) => Err(anyhow::anyhow!(
-                "Failed to execute command to read history file: {:#}",
-                e
-            )),
-        }
     }
 
     async fn read_history_for_remote_session(&self) -> Vec<String> {
@@ -1567,12 +1450,9 @@ impl Session {
         }
     }
 
-    pub async fn read_history(&self, is_kaspersky_running: bool) -> Vec<String> {
+    pub async fn read_history(&self) -> Vec<String> {
         match self.info.session_type {
-            BootstrapSessionType::Local => {
-                self.read_history_for_local_session(is_kaspersky_running)
-                    .await
-            }
+            BootstrapSessionType::Local => self.read_history_for_local_session().await,
             BootstrapSessionType::WarpifiedRemote => self.read_history_for_remote_session().await,
         }
     }
@@ -1723,10 +1603,7 @@ pub mod testing {
         pub fn new_for_test() -> Self {
             let path = std::env::var_os("PATH").unwrap().into_string().ok();
 
-            #[cfg(unix)]
             let shell_type = ShellType::Bash;
-            #[cfg(windows)]
-            let shell_type = ShellType::PowerShell;
 
             Self {
                 session_id: SessionId::from(0),

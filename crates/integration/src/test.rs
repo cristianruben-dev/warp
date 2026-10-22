@@ -173,7 +173,6 @@ use warp::settings::{
 use warp::settings_view::keybindings::KeybindingsView;
 use warp::settings_view::{FeaturesPageAction, SettingsAction, SettingsSection, SettingsView};
 use warp::terminal::alt_screen_reporting::MouseReportingEnabled;
-use warp::terminal::available_shells::AvailableShells;
 use warp::terminal::block_list_viewport::{InputMode, ScrollLines, ScrollPosition};
 use warp::terminal::find::TerminalFindModel;
 use warp::terminal::input::{Input, InputSuggestionsMode};
@@ -191,9 +190,7 @@ use warp::terminal::view::{
 use warp::terminal::{TerminalView, shell};
 use warp::util::bindings::CustomAction;
 use warp::workflows::categories::CategoriesView;
-use warp::workspace::{
-    NEW_SESSION_MENU_BUTTON_POSITION_ID, NEW_TAB_BUTTON_POSITION_ID, Workspace, WorkspaceAction,
-};
+use warp::workspace::{NEW_TAB_BUTTON_POSITION_ID, Workspace, WorkspaceAction};
 use warp::{AgentModeEntrypoint, cmd_or_ctrl_shift};
 use warpui_core::event::KeyState;
 use warpui_core::integration::{AssertionOutcome, StepData, TestStep};
@@ -3818,55 +3815,6 @@ pub fn test_add_windows_correct_position_and_cascade() -> Builder {
             ))
         .with_step(close_window("first_window_id", 1))
         .with_step(add_window_and_check_bounds(2, "first_window_bounds"))
-}
-
-pub fn test_open_new_tab_with_specific_shell_from_new_session_menu() -> Builder {
-    FeatureFlag::ShellSelector.set_enabled(true);
-
-    // Consults the AvailableShells model to find a shell based on the shell type,
-    // gets the display name, and then clicks on that entry in the new session menu.
-    fn new_tab_with_click_on_shell(shell: ShellType) -> TestStep {
-        let shell_name = shell.name();
-        new_step_with_default_assertions(format!("Open New tab with {shell_name} shell").as_str())
-            .with_click_on_saved_position_fn(move |app, _| {
-                AvailableShells::handle(app).read(app, |shells, _| {
-                    let shell = shells.find_known_shell_by_type(shell).unwrap_or_else(|| {
-                        panic!("Shell {shell_name} should be loaded into AvailableShells")
-                    });
-                    shells.display_name_for_shell(&shell).to_string()
-                })
-            })
-    }
-
-    let test_cases = vec![(ShellType::PowerShell, "(Get-Process -Id $PID).Path")];
-
-    let mut builder = new_builder()
-        .set_should_run_test(|| cfg!(windows))
-        .with_step(wait_until_bootstrapped_single_pane_for_tab(0));
-    let mut tab_index = 1;
-
-    for (shell, test_command) in test_cases {
-        let expected =
-            regex::Regex::new(format!("{}$", shell.name()).as_str()).expect("regex should compile");
-        builder = builder
-            .with_step(
-                new_step_with_default_assertions("Click on new tab menu button")
-                    .with_click_on_saved_position(NEW_SESSION_MENU_BUTTON_POSITION_ID),
-            )
-            .with_step(new_tab_with_click_on_shell(shell))
-            .with_step(
-                wait_until_bootstrapped_single_pane_for_tab(tab_index)
-                    .set_timeout(Duration::from_secs(20)),
-            )
-            .with_step(execute_command_for_single_terminal_in_tab(
-                tab_index,
-                test_command.to_string(),
-                ExpectedExitStatus::Success,
-                expected,
-            ));
-        tab_index += 1;
-    }
-    builder
 }
 
 pub fn test_command_xray_hover() -> Builder {

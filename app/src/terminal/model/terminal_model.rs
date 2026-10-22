@@ -447,12 +447,6 @@ pub struct TerminalModel {
     /// `Handler::end_in_band_command_output()` are called.
     is_receiving_in_band_command_output: IsReceivingInBandCommandOutput,
 
-    #[cfg(windows)]
-    /// On Windows, in-band generators send reset grid OSCs when they finish, clearing out
-    /// any leftover state in conpty. When we receive these, we don't want to mistakenly route
-    /// them to the active grid.
-    ignore_reset_grid_after_in_band_generator: bool,
-
     is_receiving_completions_output: IsReceivingCompletionsOutput,
 
     is_receiving_iterm_image_data: IsReceivingITermImageData,
@@ -1104,8 +1098,6 @@ impl TerminalModel {
             ignore_bootstrapping_messages: false,
             session_startup_path,
             is_receiving_in_band_command_output: IsReceivingInBandCommandOutput::No,
-            #[cfg(windows)]
-            ignore_reset_grid_after_in_band_generator: false,
             is_receiving_completions_output: IsReceivingCompletionsOutput::No,
             is_receiving_iterm_image_data: IsReceivingITermImageData::No,
             is_receiving_kitty_image_data: IsReceivingKittyActionData::No,
@@ -3337,7 +3329,7 @@ impl ansi::Handler for TerminalModel {
         };
     }
 
-    #[cfg_attr(not(windows), allow(unused_variables))]
+    #[allow(unused_variables)]
     fn end_in_band_command_output(&mut self, from_osc_sequence: bool) {
         match &mut self.is_receiving_in_band_command_output {
             IsReceivingInBandCommandOutput::Yes { output } => {
@@ -3369,11 +3361,6 @@ impl ansi::Handler for TerminalModel {
                 );
             }
             IsReceivingInBandCommandOutput::No => {}
-        }
-
-        #[cfg(windows)]
-        if from_osc_sequence {
-            self.ignore_reset_grid_after_in_band_generator = true;
         }
     }
 
@@ -3414,11 +3401,6 @@ impl ansi::Handler for TerminalModel {
     }
 
     fn on_reset_grid(&mut self) {
-        #[cfg(windows)]
-        if self.ignore_reset_grid_after_in_band_generator {
-            self.ignore_reset_grid_after_in_band_generator = false;
-            return;
-        }
         delegate!(self.on_reset_grid());
     }
 

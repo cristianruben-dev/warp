@@ -9,8 +9,6 @@ fn test_only_first_override_is_applied() {
     let predicate = OverridePredicate::TargetOS(TargetOS::MacOS);
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let predicate = OverridePredicate::TargetOS(TargetOS::Linux);
-    #[cfg(target_os = "windows")]
-    let predicate = OverridePredicate::TargetOS(TargetOS::Windows);
 
     let version = ChannelVersion {
         version_info: VersionInfo {
@@ -134,8 +132,6 @@ fn test_cli_version_override_is_applied() {
     let predicate = OverridePredicate::TargetOS(TargetOS::MacOS);
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let predicate = OverridePredicate::TargetOS(TargetOS::Linux);
-    #[cfg(target_os = "windows")]
-    let predicate = OverridePredicate::TargetOS(TargetOS::Windows);
 
     let version = ChannelVersion {
         version_info: VersionInfo {
@@ -180,8 +176,6 @@ fn test_cli_version_preserved_when_override_omits_it() {
     let predicate = OverridePredicate::TargetOS(TargetOS::MacOS);
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let predicate = OverridePredicate::TargetOS(TargetOS::Linux);
-    #[cfg(target_os = "windows")]
-    let predicate = OverridePredicate::TargetOS(TargetOS::Windows);
 
     let version = ChannelVersion {
         version_info: VersionInfo {
@@ -234,8 +228,6 @@ fn test_tui_version_override_is_applied() {
     let predicate = OverridePredicate::TargetOS(TargetOS::MacOS);
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let predicate = OverridePredicate::TargetOS(TargetOS::Linux);
-    #[cfg(target_os = "windows")]
-    let predicate = OverridePredicate::TargetOS(TargetOS::Windows);
 
     let mut version_info = VersionInfo::new("base_version".to_string());
     version_info.tui_version = Some("base_tui_version".to_string());
@@ -262,8 +254,6 @@ fn test_tui_version_preserved_when_override_omits_it() {
     let predicate = OverridePredicate::TargetOS(TargetOS::MacOS);
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let predicate = OverridePredicate::TargetOS(TargetOS::Linux);
-    #[cfg(target_os = "windows")]
-    let predicate = OverridePredicate::TargetOS(TargetOS::Windows);
 
     let mut version_info = VersionInfo::new("base_version".to_string());
     version_info.tui_version = Some("base_tui_version".to_string());
@@ -284,8 +274,6 @@ fn test_tui_version_falls_back_to_effective_version() {
     let predicate = OverridePredicate::TargetOS(TargetOS::MacOS);
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let predicate = OverridePredicate::TargetOS(TargetOS::Linux);
-    #[cfg(target_os = "windows")]
-    let predicate = OverridePredicate::TargetOS(TargetOS::Windows);
 
     let version = ChannelVersion {
         version_info: VersionInfo::new("base_version".to_string()),

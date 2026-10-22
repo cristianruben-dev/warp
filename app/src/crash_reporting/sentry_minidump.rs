@@ -431,8 +431,6 @@ fn format_crash_details(crash_context: &CrashContext) -> Option<String> {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "linux")] {
             Some(format!("Killed by signal {} / {}", crash_context.siginfo.ssi_signo, crash_context.siginfo.ssi_code))
-        } else if #[cfg(target_os = "windows")] {
-            Some(format!("Exception {}", crash_context.exception_code))
         } else if #[cfg(target_os = "macos")] {
             crash_context.exception.as_ref().map(|exception| {
                 format!("Exception {} ({} / {:?})", exception.kind, exception.code, exception.subcode)

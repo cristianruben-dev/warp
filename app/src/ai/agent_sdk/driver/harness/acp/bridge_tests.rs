@@ -94,43 +94,19 @@ fn connect(listener: &BridgeListener) -> BridgeStream {
     connect_with_token(&launch.endpoint, &launch.token).unwrap()
 }
 
-/// A command that echoes stdin to stdout line by line and exits on EOF. The Windows variant
-/// flushes after every line (`findstr`/`more` buffer until EOF when stdout is a pipe) and emits
-/// CRLF, so callers compare trimmed lines.
+/// A command that echoes stdin to stdout line by line and exits on EOF.
 fn echo_command() -> (&'static str, Vec<String>) {
-    if cfg!(windows) {
-        (
-            "powershell",
-            vec![
-                "-NoProfile".into(),
-                "-NonInteractive".into(),
-                "-Command".into(),
-                "while (($line = [Console]::In.ReadLine()) -ne $null) { \
-                 [Console]::Out.WriteLine($line); [Console]::Out.Flush() }"
-                    .into(),
-            ],
-        )
-    } else {
-        ("cat", vec![])
-    }
+    ("cat", vec![])
 }
 
 /// A command that never reads stdin and runs well past any test's patience.
 fn ignores_eof_command() -> (&'static str, Vec<String>) {
-    if cfg!(windows) {
-        ("ping", vec!["-n".into(), "60".into(), "127.0.0.1".into()])
-    } else {
-        ("sh", vec!["-c".into(), "exec sleep 60".into()])
-    }
+    ("sh", vec!["-c".into(), "exec sleep 60".into()])
 }
 
 /// A command that exits immediately without touching stdin.
 fn exits_immediately_command() -> (&'static str, Vec<String>) {
-    if cfg!(windows) {
-        ("cmd", vec!["/c".into(), "exit".into(), "0".into()])
-    } else {
-        ("true", vec![])
-    }
+    ("true", vec![])
 }
 
 /// Drives one echo round trip and an EOF-triggered shutdown through the accepted halves.

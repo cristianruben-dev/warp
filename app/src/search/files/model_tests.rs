@@ -284,9 +284,6 @@ mod strip_absolute_path_prefix_tests {
     /// path is treated as absolute by `Path::is_absolute` on both platforms.
     fn abs_path(components: &[&str]) -> String {
         let mut path = PathBuf::new();
-        #[cfg(windows)]
-        path.push(r"C:\");
-        #[cfg(unix)]
         path.push("/");
         for component in components {
             path.push(component);

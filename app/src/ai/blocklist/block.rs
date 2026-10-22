@@ -3139,10 +3139,6 @@ impl AIBlock {
                     CodeEditorEvent::CopiedEmptyText => {
                         ctx.emit(AIBlockEvent::CopiedEmptyText);
                     }
-                    #[cfg(windows)]
-                    CodeEditorEvent::WindowsCtrlC { .. } => {
-                        ctx.emit(AIBlockEvent::WindowsCtrlC);
-                    }
                     _ => {}
                 });
                 self.code_editor_views.push(EmbeddedCodeEditorView {
@@ -6269,8 +6265,6 @@ pub enum AIBlockEvent {
     },
     FocusTerminal,
     OpenThemeChooser,
-    #[cfg(windows)]
-    WindowsCtrlC,
     AIOutputUpdated,
     ActionFinished,
     /// Emitted when text is selected within any `ChildView` of an `AIBlock`. This includes

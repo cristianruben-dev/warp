@@ -182,10 +182,7 @@ fn test_load_missing_file() {
         match event {
             TestFileModelEvent::FailedToLoad(err) => {
                 // File not found error strings differ across operating systems.
-                #[cfg(not(windows))]
                 let os_error_message = "No such file or directory";
-                #[cfg(windows)]
-                let os_error_message = "The system cannot find the file specified.";
 
                 assert_eq!(
                     err,

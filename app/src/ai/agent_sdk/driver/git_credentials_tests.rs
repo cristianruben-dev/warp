@@ -19,8 +19,6 @@ fn git_authentication_preserves_managed_credentials() -> Result<()> {
     let Some(home) = std::env::var_os("WARP_TEST_MANAGED_CREDENTIALS_HOME") else {
         let home = tempfile::tempdir()?;
         let mut command = BlockingCommand::new(std::env::current_exe()?);
-        #[cfg(windows)]
-        command.creation_flags(0);
         let output = command
             .args([
                 "--exact",

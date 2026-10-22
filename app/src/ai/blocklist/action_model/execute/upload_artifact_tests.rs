@@ -107,22 +107,9 @@ fn initialize_upload_artifact_test(
 }
 
 fn test_shell_launch_data() -> ShellLaunchData {
-    #[cfg(unix)]
-    {
-        ShellLaunchData::Executable {
-            executable_path: PathBuf::from("/bin/bash"),
-            shell_type: ShellType::Bash,
-        }
-    }
-
-    #[cfg(windows)]
-    {
-        ShellLaunchData::Executable {
-            executable_path: PathBuf::from(
-                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
-            ),
-            shell_type: ShellType::PowerShell,
-        }
+    ShellLaunchData::Executable {
+        executable_path: PathBuf::from("/bin/bash"),
+        shell_type: ShellType::Bash,
     }
 }
 

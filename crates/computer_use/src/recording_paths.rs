@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use crate::RecordingError;
 
-/// Filename prefix for every recording's temp-directory output file, shared by the macOS,
-/// Linux, and Windows recorders so they can't drift on the naming convention.
+/// Filename prefix for every recording's temp-directory output file, shared by the macOS and
+/// Linux recorders so they can't drift on the naming convention.
 const RECORDING_FILE_PREFIX: &str = "warp-recording";
 
 /// Allocates a fresh recording output path (`<prefix>-<uuid>.mp4` in the system temp
@@ -12,7 +12,7 @@ const RECORDING_FILE_PREFIX: &str = "warp-recording";
 ///
 /// ffmpeg's progress log goes to a file, not a pipe, so its stderr can never fill and stall
 /// capture over a long recording. This is the cross-platform entry point behind each platform
-/// recorder's `start`, which is the only place any of the three name a recording's output file.
+/// recorder's `start`, which is the only place either of the two name a recording's output file.
 pub(super) fn new_recording_path() -> Result<(PathBuf, PathBuf, File), RecordingError> {
     let path = std::env::temp_dir().join(format!(
         "{RECORDING_FILE_PREFIX}-{}.mp4",

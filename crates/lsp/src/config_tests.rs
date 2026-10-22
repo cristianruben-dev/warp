@@ -5,7 +5,6 @@ use lsp_types::Uri;
 use crate::config::{lsp_uri_to_path, path_to_lsp_uri};
 
 // Unix-specific tests use Unix paths
-#[cfg(not(windows))]
 mod unix_tests {
     use super::*;
 
@@ -124,76 +123,6 @@ mod unix_tests {
     #[test]
     fn test_roundtrip_path_with_brackets() {
         let original_path = PathBuf::from("/Users/test/routes/[id]/[slug].tsx");
-        let uri = path_to_lsp_uri(&original_path).unwrap();
-        let roundtrip_path = lsp_uri_to_path(&uri).unwrap();
-        assert_eq!(original_path, roundtrip_path);
-    }
-}
-
-// Windows-specific tests use Windows paths
-#[cfg(windows)]
-mod windows_tests {
-    use super::*;
-
-    #[test]
-    fn test_lsp_uri_to_path_basic() {
-        let uri: Uri = "file:///C:/Users/test/project/src/main.rs".parse().unwrap();
-        let path = lsp_uri_to_path(&uri).unwrap();
-        assert_eq!(
-            path,
-            PathBuf::from("C:\\Users\\test\\project\\src\\main.rs")
-        );
-    }
-
-    #[test]
-    fn test_lsp_uri_to_path_decodes_at_symbol() {
-        // %40 is the URL encoding for @
-        let uri: Uri = "file:///C:/Users/test/node_modules/%40firebase/auth/dist/index.d.ts"
-            .parse()
-            .unwrap();
-        let path = lsp_uri_to_path(&uri).unwrap();
-        assert_eq!(
-            path,
-            PathBuf::from("C:\\Users\\test\\node_modules\\@firebase\\auth\\dist\\index.d.ts")
-        );
-    }
-
-    #[test]
-    fn test_lsp_uri_to_path_decodes_spaces() {
-        // %20 is the URL encoding for space
-        let uri: Uri = "file:///C:/Users/test/My%20Project/src/main.rs"
-            .parse()
-            .unwrap();
-        let path = lsp_uri_to_path(&uri).unwrap();
-        assert_eq!(
-            path,
-            PathBuf::from("C:\\Users\\test\\My Project\\src\\main.rs")
-        );
-    }
-
-    #[test]
-    fn test_lsp_uri_to_path_decodes_multiple_special_chars() {
-        // Test multiple encoded characters: @ (%40), space (%20), # (%23)
-        let uri: Uri = "file:///C:/Users/test/%40scope/my%20package%23v1/index.ts"
-            .parse()
-            .unwrap();
-        let path = lsp_uri_to_path(&uri).unwrap();
-        assert_eq!(
-            path,
-            PathBuf::from("C:\\Users\\test\\@scope\\my package#v1\\index.ts")
-        );
-    }
-
-    #[test]
-    fn test_path_to_lsp_uri_basic() {
-        let path = PathBuf::from("C:\\Users\\test\\project\\src\\main.rs");
-        let uri = path_to_lsp_uri(&path).unwrap();
-        assert_eq!(uri.as_str(), "file:///C:/Users/test/project/src/main.rs");
-    }
-
-    #[test]
-    fn test_roundtrip_path_to_uri_to_path() {
-        let original_path = PathBuf::from("C:\\Users\\test\\project\\src\\main.rs");
         let uri = path_to_lsp_uri(&original_path).unwrap();
         let roundtrip_path = lsp_uri_to_path(&uri).unwrap();
         assert_eq!(original_path, roundtrip_path);

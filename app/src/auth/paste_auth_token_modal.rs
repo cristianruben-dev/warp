@@ -65,7 +65,7 @@ pub fn init(app: &mut AppContext) {
         ),
     ]);
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     app.register_fixed_bindings([FixedBinding::new(
         "cmdorctrl-v",
         PasteAuthTokenModalAction::PasteIntoEditor,

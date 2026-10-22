@@ -1,15 +1,10 @@
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod x11;
 
-#[cfg(windows)]
-mod windows_wm;
-
 use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-#[cfg(windows)]
-use std::sync::LazyLock;
 
 use anyhow::{Context as _, Result};
 use itertools::Itertools;
@@ -18,27 +13,19 @@ use parking_lot::Mutex;
 use pathfinder_geometry::rect::RectF;
 use pathfinder_geometry::vector::{Vector2F, vec2f};
 use warp_errors::report_error;
+use wgpu::CompositeAlphaMode;
 use wgpu::rwh::HasDisplayHandle;
-use wgpu::{AdapterInfo, CompositeAlphaMode};
-#[cfg(windows)]
-use windows::Win32::Graphics::Dwm;
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Position, Size};
 use winit::error::ExternalError;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy, OwnedDisplayHandle};
-#[cfg(not(target_family = "wasm"))]
-use winit::monitor::MonitorHandle;
-#[cfg(windows)]
-use winit::platform::windows::{BackdropType, WindowExtWindows};
 use winit::window::{CursorIcon, Fullscreen, ResizeDirection, UserAttentionType, WindowLevel};
 
 use super::app::CustomEvent;
-#[cfg(windows)]
-use super::windows::{WindowAttributeErr, get_system_caption_button_bounds, set_window_attribute};
 #[cfg(not(target_family = "wasm"))]
 use crate::platform::WindowBounds;
 use crate::platform::{
-    self, Cursor, FullscreenState, GraphicsBackend, TerminationMode, WindowBackdrop,
-    WindowFocusBehavior, WindowOptions, WindowStyle,
+    self, Cursor, FullscreenState, GraphicsBackend, TerminationMode, WindowFocusBehavior,
+    WindowOptions, WindowStyle,
 };
 use crate::rendering::wgpu::{
     Renderer, Resources, adapter_has_rendering_offset_bug, from_wgpu_backend, renderer,
@@ -53,10 +40,6 @@ use crate::{DisplayId, DisplayIdx, OptionalPlatformWindow, Scene, WindowId, font
 /// physical size by multiplying by the scale factor.
 const DRAG_RESIZE_MARGIN: f32 = 4.0;
 
-/// This must match the ID in the embedded resource file in `app\build.rs`
-#[cfg(windows)]
-const IDI_ICON: u16 = 0x101;
-
 #[cfg_attr(target_family = "wasm", allow(dead_code))]
 pub(in crate::windowing::winit) const MIN_WINDOW_SIZE: LogicalSize<f64> = LogicalSize::new(
     crate::windowing::MIN_WINDOW_WIDTH as f64,
@@ -65,16 +48,6 @@ pub(in crate::windowing::winit) const MIN_WINDOW_SIZE: LogicalSize<f64> = Logica
 
 lazy_static! {
     static ref DEFAULT_WINDOW_SIZE: Vector2F = Vector2F::new(1280., 800.);
-}
-
-#[cfg(windows)]
-fn winit_backdrop(backdrop: WindowBackdrop) -> BackdropType {
-    match backdrop {
-        WindowBackdrop::None => BackdropType::None,
-        WindowBackdrop::Mica => BackdropType::MainWindow,
-        WindowBackdrop::Acrylic => BackdropType::TransientWindow,
-        WindowBackdrop::MicaAlt => BackdropType::TabbedWindow,
-    }
 }
 
 pub(crate) struct WindowManager {
@@ -326,8 +299,6 @@ impl platform::WindowManager for WindowManager {
                     })
                     .map(|(_, monitor_bounds)| x11::physical_bounds_to_rect(&monitor_bounds, self.get_x11_backing_scale_factor()))
                     .unwrap_or(RectF::new(Vector2F::zero(), *DEFAULT_WINDOW_SIZE))
-            } else if #[cfg(windows)] {
-                self.get_active_monitor_logical_bounds().unwrap_or(RectF::new(Vector2F::zero(), *DEFAULT_WINDOW_SIZE))
             } else {
                 RectF::new(Vector2F::zero(), *DEFAULT_WINDOW_SIZE)
             }
@@ -348,8 +319,6 @@ impl platform::WindowManager for WindowManager {
                     })
                     .map(|(i, _)| DisplayId::from(i))
                     .unwrap_or(0.into())
-            } else if #[cfg(windows)] {
-                self.get_current_monitor_id().unwrap_or(0.into())
             } else {
                 0.into()
             }
@@ -368,8 +337,6 @@ impl platform::WindowManager for WindowManager {
                     .as_ref()
                     .map(|monitors| monitors.len())
                     .unwrap_or(1)
-            } else if #[cfg(windows)] {
-                self.get_available_monitor_count().unwrap_or(1_usize)
             } else {
                 1
             }
@@ -389,8 +356,6 @@ impl platform::WindowManager for WindowManager {
                     .as_ref()
                     .and_then(|monitors| monitors.get(idx))
                     .map(|monitor| x11::physical_bounds_to_rect(monitor, self.get_x11_backing_scale_factor()))
-            } else if #[cfg(windows)] {
-                self.get_monitor_bounds_for_display_idx(display_idx).ok()
             } else {
                 let _ = display_idx;
                 None
@@ -650,19 +615,6 @@ fn window_level_for_style(style: WindowStyle) -> WindowLevel {
     }
 }
 
-/// If the selected adapter has a known rendering offset bug, enable native window decorations
-/// to work around it. See: https://github.com/warpdotdev/Warp/issues/6120
-fn enable_decorations_if_needed(window: &winit::window::Window, adapter_info: &AdapterInfo) {
-    if adapter_has_rendering_offset_bug(adapter_info) {
-        log::warn!(
-            "Enabling native window decorations to work around a rendering offset bug in the \
-            selected GPU adapter ({}). See: https://github.com/warpdotdev/Warp/issues/6120",
-            adapter_info.name,
-        );
-        window.set_decorations(true);
-    }
-}
-
 struct RenderingResources {
     resources: Resources,
     renderer: Renderer,
@@ -670,8 +622,6 @@ struct RenderingResources {
 
 struct Inner {
     window: Arc<winit::window::Window>,
-    #[cfg(windows)]
-    is_cloaked: bool,
     #[cfg_attr(not(any(target_os = "linux", target_os = "freebsd")), allow(dead_code))]
     gpu_power_preference: GPUPowerPreference,
     backend_preference: Option<wgpu::Backend>,
@@ -762,15 +712,11 @@ impl Window {
             downrank_non_nvidia_vulkan_adapters,
         )?;
 
-        enable_decorations_if_needed(&window, &resources.adapter.get_info());
-
         let renderer = Renderer::new(&resources, GlyphConfig::default());
 
         let window_id = window.id();
         self.inner.replace(Some(Inner {
             window,
-            #[cfg(windows)]
-            is_cloaked: true,
             gpu_power_preference,
             backend_preference,
             rendering_resources: Some(RenderingResources {
@@ -876,22 +822,6 @@ impl Window {
             capture_callback,
         )?;
 
-        #[cfg(windows)]
-        {
-            use crate::windowing::winit::windows::WindowExt;
-
-            // Uncloak the window upon successfully drawing a frame.
-            if inner.is_cloaked {
-                match inner.window.set_cloaked(false) {
-                    Ok(_) => {
-                        inner.is_cloaked = false;
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to uncloak window: {e:#?}");
-                    }
-                }
-            }
-        }
         Ok(())
     }
 
@@ -939,8 +869,6 @@ impl Window {
                 return;
             }
         };
-
-        enable_decorations_if_needed(&inner.window, &resources.adapter.get_info());
 
         let renderer = Renderer::new(&resources, GlyphConfig::default());
 
@@ -1070,20 +998,10 @@ impl Window {
 
     /// Requests user attention. If the window is in focus, this is a noop.
     pub fn request_user_attention(&self) {
-        // Determine which level of user attention urgency to request from the OS.
-        // On Windows, we don't use the OS-provided title bar, and the
-        // Informational level doesn't seem to flash the taskbar icon,
-        // so we use the Critical level instead.
-        let user_attention_urgency = if cfg!(windows) {
-            UserAttentionType::Critical
-        } else {
-            UserAttentionType::Informational
-        };
-
         if let Some(inner) = self.inner.borrow().as_ref() {
             inner
                 .window
-                .request_user_attention(Some(user_attention_urgency));
+                .request_user_attention(Some(UserAttentionType::Informational));
         };
     }
 
@@ -1220,18 +1138,7 @@ impl Window {
             return;
         };
 
-        #[cfg(windows)]
-        {
-            use crate::windowing::winit::windows::WindowExt;
-            if let Err(err) = window.set_alpha(alpha) {
-                log::warn!("Failed to set window alpha: {err:#?}");
-            }
-        }
-        #[cfg(not(windows))]
-        {
-            // No per-window opacity support (e.g. wasm); avoid unused warnings.
-            let _ = (window, alpha);
-        }
+        let _ = (window, alpha);
     }
 
     fn set_title(&self, title: &str) {
@@ -1313,70 +1220,10 @@ fn create_window(
         window_attributes.title = title.to_owned();
     }
 
-    #[cfg_attr(
-        not(windows),
-        expect(
-            unused_mut,
-            reason = "Windows may need to ignore the requested bounds if they are off any of the \
-                displays. Linux will adjust the bounds automatically."
-        )
-    )]
-    let mut window_bounds = window_options.bounds;
-
-    // The monitor which has the most overlap with the new window. Will only be Some if
-    // `window_bounds` is a WindowBounds::ExactPosition.
-    #[cfg_attr(
-        not(windows),
-        expect(
-            unused,
-            reason = "Both uses of this variable are for Windows-only workarounds."
-        )
-    )]
-    let mut most_overlapping_monitor: Option<MonitorHandle> = None;
-
-    #[cfg(windows)]
-    {
-        // WARNING: Do not use [`WindowAttributes::with_no_redirection_bitmap`] as that caused:
-        // https://github.com/warpdotdev/Warp/issues/8935
-
-        use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
-
-        window_attributes = window_attributes
-            .with_system_backdrop(winit_backdrop(window_options.background_backdrop));
-
-        // On Windows, don't set the window to be visible until after it has been marked as
-        // "cloaked". Winit doesn't support initializing a window as cloaked--so we temporarily set
-        // the window to be invisible to ensure the window doesn't flash in between the window being
-        // created and the window being marked as cloaked.
-        window_attributes.visible = false;
-
-        let icon = winit::window::Icon::from_resource(IDI_ICON, None);
-        window_attributes.window_icon = icon.as_ref().ok().cloned();
-        window_attributes = window_attributes.with_taskbar_icon(icon.ok());
-
-        // This is to make sure the bounds the caller is requesting intersects with any of the
-        // monitors. We only do this on Windows b/c Windows happily renders a window outside of any
-        // monitor, whereas Linux window managers automatically correct this.
-        if let WindowBounds::ExactPosition(bound_rect) = window_options.bounds {
-            most_overlapping_monitor = window_target
-                .available_monitors()
-                .filter_map(|monitor| {
-                    get_monitor_logical_bounds(&monitor)
-                        .intersection(bound_rect)
-                        .map(|rect| (monitor, rect.width() * rect.height()))
-                })
-                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-                .map(|pair| pair.0);
-            if most_overlapping_monitor.is_none() {
-                window_bounds = WindowBounds::Default;
-            }
-        }
-    }
-
     let (size, origin) = if tiling_window_manager && window_options.style != WindowStyle::Pin {
         (None, None)
     } else {
-        match window_bounds {
+        match window_options.bounds {
             // If we weren't passed specific bounds for the new window, use a
             // reasonable initial size but don't specify an origin - let the window
             // manager decide the window's position.
@@ -1387,14 +1234,10 @@ fn create_window(
     };
 
     if let Some(origin) = origin {
-        let mut position =
-            Position::Logical(LogicalPosition::new(origin.x() as f64, origin.y() as f64));
-        // Manually convert logical position to physical. Normally, winit does this for us.
-        // However, this conversion is failing on Windows so we do it ourselves.
-        if let (Some(monitor), true) = (most_overlapping_monitor, cfg!(windows)) {
-            position = Position::Physical(position.to_physical(monitor.scale_factor()));
-        }
-        window_attributes.position = Some(position);
+        window_attributes.position = Some(Position::Logical(LogicalPosition::new(
+            origin.x() as f64,
+            origin.y() as f64,
+        )));
     }
 
     if let Some(size) = size {
@@ -1442,111 +1285,7 @@ fn create_window(
         log::debug!("IME allowed on newly created Linux window");
     }
 
-    #[cfg(windows)]
-    {
-        use super::windows::WindowExt;
-        if let Ok(window) = created_window.as_ref() {
-            // Mark the window as cloaked when created to prevent a white flash from occurring in
-            // the time between the window being created and us drawing to the window. On Windows, a
-            // "cloaked" window is one that is not visible but can still be composited / drawn to.
-            // This differs from `visible` which is not composited.
-            // The window is uncloaked after the drawing the first frame.
-            if let Err(e) = window.set_cloaked(true) {
-                report_error!(anyhow::Error::new(e).context("Failed to mark window as cloaked"));
-            };
-
-            if let Some(adjustment) = maybe_adjust_window_vertically(window) {
-                let direction = if adjustment > 0 { "down" } else { "up" };
-                log::info!(
-                    "Window launched partially offsceen. Moving the window {direction} by {} pixels",
-                    adjustment.abs()
-                );
-            }
-
-            window.set_visible(true);
-            window.set_ime_allowed(true);
-
-            // When launching a window from windows file explorer, it isn't given focus. We're considering
-            // this a winit quirk and forcing it to be focused.
-            if !matches!(
-                window_options.style,
-                WindowStyle::NotStealFocus | WindowStyle::PositionedNoFocus
-            ) {
-                window.focus_window();
-            }
-
-            let rounded_corner_result = set_window_attribute(
-                window,
-                Dwm::DWMWA_WINDOW_CORNER_PREFERENCE,
-                Dwm::DWMWCP_ROUND,
-            );
-
-            static WINDOWS_VERSION: LazyLock<windows_version::OsVersion> =
-                LazyLock::new(windows_version::OsVersion::current);
-
-            if let Err(err) = rounded_corner_result {
-                match err {
-                    WindowAttributeErr::Win32Error(_) if WINDOWS_VERSION.build < 22000 => {
-                        log::info!("Rounded window corners not supported on Windows 10");
-                    }
-                    _ => {
-                        report_error!(
-                            anyhow::Error::new(err).context("Error setting rounded window corners")
-                        );
-                    }
-                }
-            }
-
-            let caption_button_result = get_system_caption_button_bounds(window);
-            match caption_button_result {
-                Ok(_caption_button_location) => {
-                    // TODO: use location to actually draw buttons
-                }
-                Err(err) => {
-                    log::warn!("Couldn't retrieve system caption button bounds: {err:?}");
-                }
-            };
-        }
-    }
-
     created_window
-}
-
-#[cfg(windows)]
-/// Moves the new window up if it was positioned vertically offscreen. This only checks for the window
-/// being too low vertically. We have this additional check because winit doesn't handle the case of us
-/// adjusting the default window size (DEFAULT_WINDOW_SIZE) without setting a window position particularly
-/// well.
-///
-/// Returns the vertical difference of the adjustment, or None.
-fn maybe_adjust_window_vertically(window: &winit::window::Window) -> Option<i32> {
-    if window.is_maximized() || window.fullscreen().is_some() {
-        return None;
-    }
-    let window_position = window.outer_position().ok()?;
-    let window_size = window.outer_size();
-    let bottom_of_window = window_position.y + window_size.height as i32;
-
-    let current_monitor = window.current_monitor()?;
-    let monitor_position = current_monitor.position();
-    let bottom_of_monitor = monitor_position.y + current_monitor.size().height as i32;
-
-    let mut adjustment = 0;
-    if window_position.y < monitor_position.y {
-        adjustment = monitor_position.y - window_position.y;
-    } else if bottom_of_window > bottom_of_monitor {
-        adjustment = bottom_of_monitor - bottom_of_window;
-    }
-
-    if adjustment.unsigned_abs() <= current_monitor.size().height {
-        window.set_outer_position(winit::dpi::PhysicalPosition::new(
-            window_position.x,
-            window_position.y + adjustment,
-        ));
-        Some(adjustment)
-    } else {
-        None
-    }
 }
 
 impl crate::platform::Window for Window {
@@ -1586,16 +1325,6 @@ impl crate::platform::Window for Window {
                     .or(window.is_maximized().then_some(FullscreenState::Maximized))
             })
             .unwrap_or_default()
-    }
-
-    #[cfg_attr(not(windows), allow(unused_variables))]
-    fn set_background_backdrop(&self, backdrop: WindowBackdrop) {
-        #[cfg(windows)]
-        {
-            if let Some(inner) = self.inner.borrow().as_ref() {
-                inner.window.set_system_backdrop(winit_backdrop(backdrop));
-            }
-        }
     }
 
     fn supports_transparency(&self) -> bool {
@@ -1681,16 +1410,7 @@ impl platform::WindowContext for Window {
             .borrow()
             .as_ref()
             .map_or(Vector2F::zero(), |inner| {
-                // [`winit::window::Window::outer_position`] is returning weird results on Windows.
-                // When maximized, it shows (physical) position (-13, -13) as the origin.
-                // `inner_position` seems to be correct on Windows, whereas `outer_position` seems
-                // correct on Linux.
-                let position_res = if cfg!(windows) {
-                    inner.window.inner_position()
-                } else {
-                    inner.window.outer_position()
-                };
-                let Ok(position) = position_res else {
+                let Ok(position) = inner.window.outer_position() else {
                     return Vector2F::zero();
                 };
                 let position = position.to_logical::<f32>(scale_factor);
@@ -1748,15 +1468,4 @@ impl PhysicalSizeExt for PhysicalSize<u32> {
         let physical_size = self.cast::<f32>();
         vec2f(physical_size.width, physical_size.height)
     }
-}
-
-#[cfg(windows)]
-fn get_monitor_logical_bounds(monitor: &MonitorHandle) -> RectF {
-    let scale_factor = monitor.scale_factor();
-    let logical_size = monitor.size().to_logical(scale_factor);
-    let logical_position = monitor.position().to_logical(scale_factor);
-    RectF::new(
-        Vector2F::new(logical_position.x, logical_position.y),
-        Vector2F::new(logical_size.width, logical_size.height),
-    )
 }
