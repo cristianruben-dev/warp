@@ -179,16 +179,13 @@ web-sys.workspace = true
 workspace = true
 features = ["fragile-send-sync-non-atomic-wasm", "webgl"]
 
-[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os = "windows"))'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 arboard = { workspace = true, features = [
     "wayland-data-control",
     "image-data",
 ] }
-native-dialog = "0.7.0"
-open = "5.0.0"
-
-[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 blocking.workspace = true
+native-dialog = "0.7.0"
 dirs.workspace = true
 fontconfig = { version = "0.8.0", features = ["dlopen"] }
 # On Linux, use dlopen to locate fontconfig at runtime. Other platforms should not depend on fontconfig at all.
@@ -207,25 +204,6 @@ zbus.workspace = true
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dev-dependencies]
 virtual-fs.workspace = true
-
-[target.'cfg(target_os = "windows")'.dependencies]
-dwrote = { git = "https://github.com/warpdotdev/dwrote-rs", rev = "a71ce6c0136f7d0954a9a8b181b5b2d8ace5eb9c", default-features = false }
-winreg.workspace = true
-windows = { workspace = true, features = [
-    "Win32_Graphics_Dwm",
-    "Win32_Graphics_DirectWrite",
-    "Win32_Graphics_Gdi",
-    "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_Networking",
-    "Win32_System_Com",
-    "Win32_Networking_NetworkListManager",
-    "Win32_System_DataExchange",
-    "Win32_System_Memory",
-] }
-windows-core.workspace = true
-windows-version = "0.1.2"
-tauri-winrt-notification = "0.7.0"
 
 [build-dependencies]
 bindgen = "0.70.1"
